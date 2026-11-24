@@ -73,12 +73,12 @@ function buildEvent(event, classifications) {
   }
   return ev;
 }
-/** Put a freshly fetched event into a season, keeping what people wrote (note, report), which car ran which number (assign) and any hand-corrected numbers. */
+/** Put a freshly fetched event into a season, keeping what people wrote (note, report) and any hand-corrected numbers. */
 function mergeEvent(events, fresh) {
   const i = events.findIndex((e) => (e.eventId && e.eventId === fresh.eventId) || (e.date === fresh.date && norm(e.race) === norm(fresh.race)));
   if (i < 0) return { events: [...events, fresh].sort((a, b) => b.date.localeCompare(a.date)), changed: true };
   const old = events[i]; if (old.manual) return { events, changed: false };
-  const next = { ...fresh, id: old.id || fresh.id, ...(old.note ? { note: old.note } : {}), ...(old.report ? { report: old.report } : {}), ...(old.assign ? { assign: old.assign } : {}) };
+  const next = { ...fresh, id: old.id || fresh.id, ...(old.note ? { note: old.note } : {}), ...(old.report ? { report: old.report } : {}) };
   const changed = JSON.stringify({ ...old, id: 0 }) !== JSON.stringify({ ...next, id: 0 });
   const copy = [...events]; copy[i] = next; return { events: copy, changed };
 }

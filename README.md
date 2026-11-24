@@ -25,15 +25,9 @@ Everyone with a login is an **admin** (`owner` in the code) and can edit everyth
 
 The gallery holds 20 photos at most, to keep storage small.
 
-### Cars and numbers
+### Cars
 
-A car is known by its **name**, not its race number: numbers change between races, and two cars can share a number at different races. `functions/cars.js` decides which car a result belongs to (the admin bundles the same file):
-
-1. a pick an admin made for that race (`assign` on the event) wins;
-2. otherwise the one car that lists the number;
-3. if several cars list it, the result belongs to no car until an admin picks.
-
-Results nobody claims still appear on the Results page under their number. Car docs created before this (keyed by number, no `numbers` list) keep working.
+The Cars page is a showcase: each car has a name, an optional usual number (free text), make, model, photo, story and an active/retired flag. It carries no statistics. The race record is the Results page, by number, straight from official timing, because numbers change between races and can be shared.
 
 ## Working on it
 

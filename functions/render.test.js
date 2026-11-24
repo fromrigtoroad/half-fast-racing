@@ -26,38 +26,24 @@ test("a season saved in the database replaces the seed's, others stay", () => {
   const S = mergeState({ seasons: { 2026: { events: [seed.seasons["2026"][0]] } } });
   assert.equal(S.seasons["2026"].length, 1); assert.equal(S.seasons["2025"].length, seed.seasons["2025"].length);
 });
-test("cars: named, inactive ones are retired, new ones show before racing, home shows only active", () => {
-  const S = mergeState({ cars: { 42: { name: "Lemon Drop", make: "Mazda", model: "Miata" }, 220: { active: false }, 777: { name: "New Build" } } });
-  const c = renderPage(S, "/cars", "2026-11-24").html;
-  assert.ok(c.includes("Lemon Drop") && c.includes("Mazda Miata")); assert.ok(/id="retired"[\s\S]*id="car-220"/.test(c)); assert.ok(!/id="car-220"[\s\S]*id="retired"/.test(c));
-  assert.ok(c.includes('href="#car-777"') && c.includes("Hasn't raced yet")); assert.ok(c.includes("Last raced Nov 7, 2026"));
-  assert.ok(!renderPage(S, "/", "2026-11-24").html.includes('id="car-220"'), "a retired car is not on the home page");
-});
 test("the gallery never shows more than 20 photos", () => {
   const photos = Array.from({ length: 30 }, (_, i) => ({ url: `https://x/${i}.jpg`, status: "published", race: "R", at: `2026-01-01T00:00:${String(i).padStart(2, "0")}Z` }));
   assert.equal((renderPage(mergeState({ photos }), "/gallery", "2026-11-24").html.match(/class="ph /g) || []).length, 20);
 });
-test("a car that ran in two classes shows both, and each result line names its class", () => {
-  const S = mergeState({ cars: { 42: {} } }); const ev = S.seasons["2026"]; ev[0].cars["42"].cls = "A"; ev[1].cars["42"].cls = "B";
-  const c = renderPage(S, "/cars", "2026-11-24").html; const card = c.slice(c.indexOf('id="car-42"'), c.indexOf("</article>", c.indexOf('id="car-42"')));
-  assert.ok(card.includes("Classes A, B")); assert.ok(card.includes("· Class A</span>") && card.includes("· Class B</span>"));
+test("cars are a showcase: name, make, story, number as typed; inactive ones are retired; no stats", () => {
+  const S = mergeState({ cars: { a1: { name: "Lemon Drop", number: "42", make: "Mazda", model: "Miata", story: "Bought for $400.\n\nStill runs." }, b2: { name: "The Bug", number: "222 or 92", active: false }, c3: { name: "New Build" } } });
+  const c = renderPage(S, "/cars", "2026-11-24").html; const card = (id) => c.slice(c.indexOf(`id="car-${id}"`), c.indexOf("</article>", c.indexOf(`id="car-${id}"`)));
+  assert.ok(card("a1").includes('<div class="num">42</div>') && card("a1").includes("Lemon Drop") && card("a1").includes("Mazda Miata") && card("a1").includes("<p>Still runs.</p>"));
+  assert.ok(/id="retired"[\s\S]*id="car-b2"/.test(c) && card("b2").includes("Races as 222 or 92") && card("b2").includes("Retired"));
+  assert.ok(card("c3").includes("New Build")); assert.ok(!/Starts|Best<\/dt>|Last raced/.test(c), "no per-car stats");
+  const h = renderPage(S, "/", "2026-11-24").html; assert.ok(h.includes('id="car-a1"') && !h.includes('id="car-b2"'), "home shows active cars only");
+  assert.ok(renderPage(S, "/results", "2026-11-24").html.includes(">#42</td>"), "results stay by number");
   assert.ok(c.includes('href="https://local.apexoutreach.app"'));
 });
-test("cars are named things: one car, several numbers; a shared number waits for an admin's pick", () => {
-  const { resolver, normalizeCars } = require("./cars");
-  const cars = { lemon: { name: "Lemon Drop", numbers: ["42", "48", "92"] }, bug: { name: "The Bug", numbers: ["222", "92"] } };
-  const S = mergeState({ cars }); const { who, why } = resolver(normalizeCars(cars));
-  const cmp = S.seasons["2026"].find((ev) => ev.cars["92"]); const hou = S.seasons["2026"].find((ev) => ev.cars["42"]);
-  assert.equal(who(hou, "42"), "lemon"); assert.equal(why(cmp, "92"), "ambiguous"); assert.equal(who(cmp, "92"), null); assert.equal(why(hou, "17"), "unclaimed");
-  let c = renderPage(S, "/cars", "2026-11-24").html; const card = () => c.slice(c.indexOf('id="car-lemon"'), c.indexOf("</article>", c.indexOf('id="car-lemon"')));
-  const startsBefore = Number(/Starts 2026<\/dt><dd>(\d+)/.exec(card())[1]);
-  assert.ok(!c.includes('id="car-17"') && !c.includes('id="car-404"'), "numbers nobody claimed get no card");
-  for (const ev of S.seasons["2026"]) if (ev.cars["92"]) ev.assign = { 92: "lemon" };
-  c = renderPage(S, "/cars", "2026-11-24").html;
-  assert.equal(Number(/Starts 2026<\/dt><dd>(\d+)/.exec(card())[1]), startsBefore + 2, "the two #92 races now count for Lemon Drop");
-  assert.ok(card().includes("Also raced as") && card().includes("#92"));
-  const r = renderPage(S, "/results", "2026-11-24").html; assert.ok(r.includes("#42<small>Lemon Drop</small>")); assert.ok(r.includes(">#17 <i>P48</i>"), "unclaimed numbers still show in results");
-  cmp.assign = { 92: "" }; assert.equal(resolver(S.cars).who(cmp, "92"), null); assert.equal(resolver(S.cars).why(cmp, "92"), "none");
+test("car records from earlier versions still show", () => {
+  const S = mergeState({ cars: { 42: { name: "Old Style" }, x9: { name: "Listed", numbers: ["42", "48"] }, 777: {} } });
+  assert.equal(S.cars["42"].number, "42"); assert.equal(S.cars.x9.number, "42, 48"); assert.equal(S.cars["777"].name, "#777");
+  assert.equal(renderPage(S, "/cars", "2026-11-24").status, 200);
 });
 test("with no cars set up, the cars page says so and nothing breaks", () => {
   const S = mergeState({}); assert.ok(renderPage(S, "/cars", "2026-11-24").html.includes("being catalogued"));
