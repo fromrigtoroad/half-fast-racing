@@ -1,9 +1,9 @@
-@font-face{font-family:"Barlow C";font-weight:900;font-style:italic;src:url(fonts/barlow-condensed-latin-900-italic.woff2) format("woff2");font-display:swap}
-@font-face{font-family:"Barlow C";font-weight:800;font-style:italic;src:url(fonts/barlow-condensed-latin-800-italic.woff2) format("woff2");font-display:swap}
-@font-face{font-family:Barlow;font-weight:400;src:url(fonts/barlow-latin-400-normal.woff2) format("woff2");font-display:swap}
-@font-face{font-family:Barlow;font-weight:600;src:url(fonts/barlow-latin-600-normal.woff2) format("woff2");font-display:swap}
-@font-face{font-family:"Chivo Mono";font-weight:400;src:url(fonts/chivo-mono-latin-400-normal.woff2) format("woff2");font-display:swap}
-@font-face{font-family:"Chivo Mono";font-weight:700;src:url(fonts/chivo-mono-latin-700-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:"Barlow C";font-weight:900;font-style:italic;src:url(/fonts/barlow-condensed-latin-900-italic.woff2) format("woff2");font-display:swap}
+@font-face{font-family:"Barlow C";font-weight:800;font-style:italic;src:url(/fonts/barlow-condensed-latin-800-italic.woff2) format("woff2");font-display:swap}
+@font-face{font-family:Barlow;font-weight:400;src:url(/fonts/barlow-latin-400-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:Barlow;font-weight:600;src:url(/fonts/barlow-latin-600-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:"Chivo Mono";font-weight:400;src:url(/fonts/chivo-mono-latin-400-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:"Chivo Mono";font-weight:700;src:url(/fonts/chivo-mono-latin-700-normal.woff2) format("woff2");font-display:swap}
 :root{color-scheme:dark;--bg:#0d1420;--panel:#121c2c;--panel2:#18243a;--line:#223046;--text:#eef2f8;--mute:#93a0b4;--lemon:#ffd60a;--red:#ff5a4d;--paper:#f4efe1;--ink:#0d1420;
 --disp:"Barlow C","Arial Narrow",Impact,sans-serif;--body:Barlow,"Helvetica Neue",Arial,sans-serif;--mono:"Chivo Mono",ui-monospace,Menlo,monospace}
 *{box-sizing:border-box}
@@ -156,3 +156,8 @@ h1,h2,h3,h4,.brand,.abrand,.tabs a,.av{font-style:italic}.tcard h3,.apanel h2{fo
 .nexttag{font:600 .62rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;background:var(--lemon);color:var(--ink);border-radius:20px;padding:4px 8px;margin-left:8px;vertical-align:middle}
 .chip.add{border-style:dashed}
 .nexttag{white-space:nowrap;display:inline-block}
+img.ph{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:8px;display:block;background:var(--panel2)}img.ph.sq{aspect-ratio:1}
+.cname{font-size:1.6rem}.cstory p{font-size:.92rem;color:#c5cedc;margin-top:8px}
+.galgrid img.ph{aspect-ratio:1}.iggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.reports{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}.report{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:24px}.report h3{font-size:2rem;margin-bottom:12px}.report p{color:#c5cedc;margin-top:10px}
+.story p{margin-bottom:16px}

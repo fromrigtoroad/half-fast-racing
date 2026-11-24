@@ -1,4 +1,4 @@
-# Deploy the Half Fast Racing site to Firebase Hosting (project half-fast-racing).
+# Deploy the Half Fast Racing site to Firebase (project half-fast-racing): pages, admin, functions and database rules.
 # Started by hand only: Actions tab → Deploy → Run workflow. Never runs on push.
 # Signs in to Google with workload identity federation: no key is stored in GitHub or the repo.
 # One-time setup: scripts/setup-github-deploy.sh
@@ -14,26 +14,29 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PROJECT: half-fast-racing
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build the site
-        run: python3 site/build.py
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix functions
+      - name: Tests (a failure stops the deploy)
+        run: npm test
+      - name: Build the static files and the admin
+        run: npm run build
       - name: Sign in to Google (half-fast-racing only)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/1027280441949/locations/global/workloadIdentityPools/github/providers/half-fast-racing
           service_account: deploy@half-fast-racing.iam.gserviceaccount.com
       - name: Deploy
-        run: npx --yes firebase-tools@15.34.2 deploy --only hosting --project "$PROJECT" --non-interactive
+        run: npx firebase deploy --only hosting,functions,firestore:rules,storage --project "$PROJECT" --non-interactive --force
       - name: Summary
         if: always()
         env:
@@ -42,5 +45,5 @@ jobs:
           {
             echo "### Deploy to half-fast-racing: $OUTCOME"
             echo "- Commit: $GITHUB_SHA on $GITHUB_REF_NAME"
-            echo "- Site: https://half-fast-racing.web.app"
+            echo "- Site: https://half-fast-racing.web.app · Admin: https://half-fast-racing.web.app/admin"
           } >> "$GITHUB_STEP_SUMMARY"

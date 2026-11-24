@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Roles are custom claims set by the owner-only API: owner, carowner (with claim car = their number), member.
+    function role() { return request.auth != null ? request.auth.token.get('role', '') : ''; }
+    function isMember() { return role() in ['owner', 'carowner', 'member']; }
+    function isOwner() { return role() == 'owner'; }
+
+    // The public site is rendered on the server, so nothing here is readable without a login.
+    match /site/{doc} { allow read: if isMember(); allow write: if isOwner(); }
+    match /seasons/{year} { allow read: if isMember(); allow write: if isOwner(); }
+    match /cars/{number} {
+      allow read: if isMember();
+      allow write: if isOwner() || (role() == 'carowner' && request.auth.token.get('car', '') == number);
+    }
+    match /people/{uid} {
+      allow read: if isMember();
+      // A person may edit their own card, but not their role, car or email. Those go through the owner-only API.
+      allow update: if isOwner() || (isMember() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'bio', 'photo', 'title']));
+      allow create, delete: if false;
+    }
+    match /photos/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.by == request.auth.uid && request.resource.data.status == 'new';
+      allow update, delete: if role() in ['owner', 'carowner'] || (isMember() && resource.data.by == request.auth.uid && resource.data.status == 'new' && request.resource.data.status == 'new');
+    }
+  }
+}

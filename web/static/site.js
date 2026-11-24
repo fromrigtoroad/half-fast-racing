@@ -1,0 +1,1 @@
+function tick(){document.querySelectorAll('.clock').forEach(function(c){var s=Math.max(0,new Date(c.dataset.t)-Date.now())/1e3,b=c.querySelectorAll('b');b[0].textContent=Math.floor(s/86400);b[1].textContent=String(Math.floor(s%86400/3600)).padStart(2,'0');b[2].textContent=String(Math.floor(s%3600/60)).padStart(2,'0')})}tick();setInterval(tick,30000);
