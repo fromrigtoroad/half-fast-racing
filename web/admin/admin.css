@@ -24,3 +24,31 @@ button.abtn{font-family:var(--body);cursor:pointer}button.abtn:disabled{opacity:
 label.f>small{font-weight:400;color:var(--mute)}
 .need{display:block;color:var(--lemon);font-size:.76rem;margin-top:4px}.tbl.plain select{padding:8px 10px;font-size:14px;min-width:190px}.carpick button{font-size:1.15rem}
 .linkbox{display:grid;gap:6px;margin-top:10px}.linkbox[hidden]{display:none}.linkout{width:100%;font:13px ui-monospace,Menlo,monospace;padding:8px 10px}
+
+/* Phones and small tablets: a menu button instead of the row of tabs (Allan, 24 Nov). */
+.abar{display:flex;align-items:center;justify-content:space-between;gap:12px}.menubtn{display:none}
+.carpick button.new.on{color:var(--ink)}
+@media(max-width:900px){
+  .aside{position:sticky;top:0;z-index:30;padding:10px 14px;gap:0;border-right:0;border-bottom:1px solid var(--line)}
+  .abrand{padding:0}
+  .menubtn{display:grid;place-items:center;width:44px;height:44px;border-radius:8px;border:1px solid #2c3d58;background:var(--bg);color:var(--text);cursor:pointer}
+  .aside nav,.aside .viewsite{display:none}
+  .adm.menu-open .aside{max-height:100vh;max-height:100dvh;overflow-y:auto;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+  .adm.menu-open .aside nav{display:flex;flex-direction:column;overflow:visible;gap:2px;margin-top:12px}
+  .adm.menu-open .aside nav button{width:100%;white-space:normal;padding:13px 12px;font-size:1rem}
+  .adm.menu-open .aside .viewsite{display:block;padding:12px}
+  .ahead{align-items:flex-start}.ahead h1{font-size:2.2rem}.who{min-width:0}.who b{overflow-wrap:anywhere}
+}
+/* Phones: table rows become cards, each value under its column name, so nothing is cut off. */
+@media(max-width:640px){
+  .adm .tbl.plain{overflow:visible}
+  .adm .tbl.plain table,.adm .tbl.plain tbody{display:block;min-width:0;width:100%}
+  .adm .tbl.plain thead{display:none}
+  .adm .tbl.plain tr{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-top:1px solid var(--line)}
+  .adm .tbl.plain tbody tr:first-child{border-top:0}
+  .adm .tbl.plain td{display:block;padding:0;border:0;min-width:0;overflow-wrap:anywhere;white-space:normal}
+  .adm .tbl.plain td[data-label]::before{content:attr(data-label);display:block;font:600 .68rem/1.2 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:5px}
+  .adm .tbl.plain td:empty{display:none}
+  .tbl.plain select{min-width:0;width:100%}
+  .apanel{padding:16px}
+}

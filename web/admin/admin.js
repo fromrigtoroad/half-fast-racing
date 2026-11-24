@@ -16,6 +16,13 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 const MIC = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>';
 const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+const MENU = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>';
+const CLOSE = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.29 1.41 1.42 6.3-6.3 6.29 6.3 1.42-1.42-6.3-6.29 6.3-6.3z"/></svg>';
+/** Each table cell gets its column name (data-label), so on a phone a row can show as a card. Tables drawn later are labelled too. */
+function labelCells(root) {
+  const run = () => root.querySelectorAll(".tbl table").forEach((t) => { const h = [...t.querySelectorAll("thead th")].map((x) => x.textContent.trim()); t.querySelectorAll("tbody tr").forEach((tr) => [...tr.children].forEach((td, i) => { if (h[i] && td.dataset.label !== h[i]) td.dataset.label = h[i]; })); });
+  new MutationObserver(run).observe(root, { childList: true, subtree: true }); run();
+}
 
 /** A labelled input. opts: {multiline, type, hint, placeholder}. Multiline fields get a mic button where the browser can dictate. */
 function field(label, value, opts = {}) {
@@ -82,8 +89,13 @@ async function shell(F, me) {
     : me.role === "carowner" ? [["Gallery", gallery], ["My card", myCard]] : [["Photos", gallery], ["My card", myCard]];
   const main = el("div", { class: "amain" }); const nav = el("nav", {});
   const show = async (i) => { [...nav.children].forEach((b, j) => b.classList.toggle("on", i === j)); main.replaceChildren(el("div", { class: "ahead" }, el("div", {}, el("h1", {}, tabs[i][0])), el("div", { class: "who" }, el("span", { class: "av" }, (me.email || "?")[0].toUpperCase()), el("div", {}, el("b", {}, me.email), el("small", {}, { owner: me.uid === S.mainAdmin ? "Main admin" : "Admin", carowner: `Car owner${me.car ? " · #" + me.car : ""}`, member: "Teammate" }[me.role])))), ...(await tabs[i][1](ctx))); sessionStorage.setItem("tab", i); };
-  tabs.forEach(([name], i) => nav.append(el("button", { type: "button", onclick: () => show(i) }, name)));
-  app$.replaceChildren(el("div", { class: "adm" }, el("aside", { class: "aside" }, el("div", { class: "abrand" }, el("b", {}, "Half Fast"), " ", el("span", {}, "Admin")), nav, el("a", { class: "viewsite", href: "/?fresh", target: "_blank" }, "View the site ↗"), el("button", { type: "button", class: "linkbtn viewsite", style: "margin-top:0", onclick: () => signOut(F.auth) }, "Sign out")), main));
+  // Phones: the sections sit behind a menu button; picking one closes the menu and goes to the top.
+  const menuBtn = el("button", { type: "button", class: "menubtn", "aria-label": "Menu", "aria-expanded": "false", innerHTML: MENU, onclick: () => setMenu(!adm.classList.contains("menu-open")) });
+  const setMenu = (open) => { adm.classList.toggle("menu-open", open); menuBtn.setAttribute("aria-expanded", String(open)); menuBtn.innerHTML = open ? CLOSE : MENU; };
+  tabs.forEach(([name], i) => nav.append(el("button", { type: "button", onclick: () => { setMenu(false); show(i); window.scrollTo(0, 0); } }, name)));
+  labelCells(main);
+  const adm = el("div", { class: "adm" }, el("aside", { class: "aside" }, el("div", { class: "abar" }, el("div", { class: "abrand" }, el("b", {}, "Half Fast"), " ", el("span", {}, "Admin")), menuBtn), nav, el("a", { class: "viewsite", href: "/?fresh", target: "_blank" }, "View the site ↗"), el("button", { type: "button", class: "linkbtn viewsite", style: "margin-top:0", onclick: () => signOut(F.auth) }, "Sign out")), main);
+  app$.replaceChildren(adm);
   show(Math.min(Number(sessionStorage.getItem("tab") || 0), tabs.length - 1));
 }
 
@@ -101,7 +113,7 @@ function overview({ F, S, years, reload }) {
     panel("Official results, standings and schedule", el("p", { class: "hint" }, `The site checks the official sources every morning at 6:00 ET. Last check: ${when(sy && sy.at)}.${sy && sy.failures > 1 ? ` It has failed ${sy.failures} times in a row.` : ""}`),
       el("div", { class: "tbl plain" }, el("table", {}, el("tbody", {}, rows))),
       el("div", { class: "rowacts" }, action("Check now", m, async () => { const r = await api(F, "/sync", {}); setTimeout(reload, 1500); return r.ok ? "Checked. Everything is up to date." : "Checked, but at least one source couldn't be read. See above after the page reloads."; }), m.node)),
-    panel("How this works", el("p", { class: "hint" }, "Pick a section on the left, change what you need and press Save. The public site shows the change within about two minutes. “View the site” opens a fresh copy straight away."))];
+    panel("How this works", el("p", { class: "hint" }, "Pick a section from the menu, change what you need and press Save. The public site shows the change within about two minutes. “View the site” opens a fresh copy straight away."))];
 }
 
 function schedule({ F, S, carList }) {
