@@ -26,3 +26,14 @@ test("a season saved in the database replaces the seed's, others stay", () => {
   const S = mergeState({ seasons: { 2026: { events: [seed.seasons["2026"][0]] } } });
   assert.equal(S.seasons["2026"].length, 1); assert.equal(S.seasons["2025"].length, seed.seasons["2025"].length);
 });
+test("cars: named, inactive ones are retired, new ones show before racing, home shows only active", () => {
+  const S = mergeState({ cars: { 42: { name: "Lemon Drop", make: "Mazda", model: "Miata" }, 220: { active: false }, 777: { name: "New Build" } } });
+  const c = renderPage(S, "/cars", "2026-11-24").html;
+  assert.ok(c.includes("Lemon Drop") && c.includes("Mazda Miata")); assert.ok(/id="retired"[\s\S]*id="car-220"/.test(c)); assert.ok(!/id="car-220"[\s\S]*id="retired"/.test(c));
+  assert.ok(c.includes('href="#car-777"') && c.includes("Hasn't raced yet")); assert.ok(c.includes("Last raced Nov 7, 2026"));
+  assert.ok(!renderPage(S, "/", "2026-11-24").html.includes('id="car-220"'), "a retired car is not on the home page");
+});
+test("the gallery never shows more than 20 photos", () => {
+  const photos = Array.from({ length: 30 }, (_, i) => ({ url: `https://x/${i}.jpg`, status: "published", race: "R", at: `2026-01-01T00:00:${String(i).padStart(2, "0")}Z` }));
+  assert.equal((renderPage(mergeState({ photos }), "/gallery", "2026-11-24").html.match(/class="ph /g) || []).length, 20);
+});

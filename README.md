@@ -7,9 +7,9 @@ Website and team admin for Half Fast Racing, a 24 Hours of Lemons endurance team
 
 ## Status
 
-- **Built:** the public pages (Home, Results by season, Cars, About, Gallery), rendered on the server from the database, and the admin: race schedule, Home and About text, race reports, cars, photos, Instagram post links, people and roles.
-- **Not built yet:** automatic results, standings and schedule updates (they are typed in or seeded for now), and AI-drafted race reports.
-- Pages carry `noindex` until the owner switches on "Launch" in the admin.
+- **Built:** the public pages (Home, Results by season, Cars, About, Gallery), rendered on the server from the database; the admin (race schedule, Home and About text, race reports, cars, photos, Instagram post links, admins); and a daily check of the official results, standings and schedule.
+- **Not built yet:** AI-drafted race reports, hand-correcting a single result from the admin, and an email when a check keeps failing (the admin's Overview shows it instead).
+- Pages carry `noindex` until an admin switches on "Launch".
 
 ## How it fits together
 
@@ -18,15 +18,18 @@ Website and team admin for Half Fast Racing, a 24 Hours of Lemons endurance team
 | Public pages | `functions/render.js`, served by the `site` function | Reads Firestore through `functions/data.js`; anything missing falls back to `functions/seed.json`, so a page never renders blank. Cached about two minutes. |
 | Admin | `web/admin/` (bundled by esbuild) | Talks to Firestore and Storage directly, under `firestore.rules` and `storage.rules`. |
 | People and roles | the `api` function in `functions/index.js` | Owner only. Roles are custom claims: `owner`, `carowner` (with their car number), `member`. |
+| Daily update | `functions/sync.js`, run by the `sync` function at 6:00 ET and by "Check now" in the admin | Results from the Speedhive API; standings and schedule read from the Lemons pages. Each source is independent: if one can't be read, the site keeps the last good numbers and the admin says so. A report or note written for a race survives a results refresh. |
 | Static files | `web/static/` | Styles, fonts, logo. |
 
-Roles: a **site admin** (`owner` in the code) edits everything and manages people; it doesn't have to be the team's owner. A **car owner** edits their own car and publishes photos. A **teammate** uploads photos. Who appears on the public About page is a separate tick box per person.
+Everyone with a login is an **admin** (`owner` in the code) and can edit everything and add or remove other admins. The first admin account ever created is the **main admin** and can't be removed. Who appears on the public About page is a tick box per person. The rules still understand two narrower roles (`carowner`, `member`), but nobody is given them.
+
+The gallery holds 20 photos at most, to keep storage small.
 
 ## Working on it
 
 ```bash
 npm ci && npm ci --prefix functions
-npm test                      # renderer and data-merge tests
+npm test                      # renderer, data-merge and update-job tests (the update job runs against saved copies of the real pages in functions/fixtures/)
 npm run build                 # static files and the admin bundle into public/
 npx firebase emulators:start --project demo-hfr    # the whole thing locally, with fake data
 node tools/e2e.js             # end-to-end test against the running emulators (needs Playwright)

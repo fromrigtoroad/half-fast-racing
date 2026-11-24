@@ -18,9 +18,9 @@ const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 /** A labelled input. opts: {multiline, type, hint, placeholder}. Multiline fields get a mic button where the browser can dictate. */
 function field(label, value, opts = {}) {
-  const input = opts.multiline ? el("textarea", { value: value || "", placeholder: opts.placeholder || (Speech ? "Type, or tap the mic and talk." : "") }) : el("input", { type: opts.type || "text", value: value || "", placeholder: opts.placeholder || "" });
+  const input = opts.multiline ? el("textarea", { value: value || "", placeholder: opts.placeholder || (Speech && opts.mic !== false ? "Type, or tap the mic and talk." : "") }) : el("input", { type: opts.type || "text", value: value || "", placeholder: opts.placeholder || "" });
   let body = input;
-  if (opts.multiline && Speech) {
+  if (opts.multiline && Speech && opts.mic !== false) {
     let rec = null;
     const btn = el("button", { type: "button", class: "micbtn", title: "Dictate", "aria-label": `Dictate: ${label}`, innerHTML: MIC, onclick: () => {
       if (rec) { rec.stop(); return; }
@@ -76,22 +76,30 @@ async function shell(F, me) {
   const years = Object.keys(S.seasons).sort().reverse(); const cur = S.seasons[years[0]] || [];
   const fleetNums = [...new Set([...cur.flatMap((ev) => Object.keys(ev.cars)), ...Object.keys(S.cars)])].sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
   const ctx = { F, me, S, years, fleetNums, reload: () => shell(F, me) };
+  S.sync ??= null;
   const tabs = me.role === "owner" ? [["Overview", overview], ["Race schedule", schedule], ["Home & About", pages], ["Race reports", reports], ["Cars", cars], ["Gallery", gallery], ["People", people], ["My card", myCard]]
     : me.role === "carowner" ? [["My car", cars], ["Gallery", gallery], ["My card", myCard]] : [["Photos", gallery], ["My card", myCard]];
   const main = el("div", { class: "amain" }); const nav = el("nav", {});
-  const show = async (i) => { [...nav.children].forEach((b, j) => b.classList.toggle("on", i === j)); main.replaceChildren(el("div", { class: "ahead" }, el("div", {}, el("h1", {}, tabs[i][0])), el("div", { class: "who" }, el("span", { class: "av" }, (me.email || "?")[0].toUpperCase()), el("div", {}, el("b", {}, me.email), el("small", {}, { owner: "Site admin", carowner: `Car owner${me.car ? " · #" + me.car : ""}`, member: "Teammate" }[me.role])))), ...(await tabs[i][1](ctx))); sessionStorage.setItem("tab", i); };
+  const show = async (i) => { [...nav.children].forEach((b, j) => b.classList.toggle("on", i === j)); main.replaceChildren(el("div", { class: "ahead" }, el("div", {}, el("h1", {}, tabs[i][0])), el("div", { class: "who" }, el("span", { class: "av" }, (me.email || "?")[0].toUpperCase()), el("div", {}, el("b", {}, me.email), el("small", {}, { owner: me.uid === S.mainAdmin ? "Main admin" : "Admin", carowner: `Car owner${me.car ? " · #" + me.car : ""}`, member: "Teammate" }[me.role])))), ...(await tabs[i][1](ctx))); sessionStorage.setItem("tab", i); };
   tabs.forEach(([name], i) => nav.append(el("button", { type: "button", onclick: () => show(i) }, name)));
   app$.replaceChildren(el("div", { class: "adm" }, el("aside", { class: "aside" }, el("div", { class: "abrand" }, el("b", {}, "Half Fast"), " ", el("span", {}, "Admin")), nav, el("a", { class: "viewsite", href: "/?fresh", target: "_blank" }, "View the site ↗"), el("button", { type: "button", class: "linkbtn viewsite", style: "margin-top:0", onclick: () => signOut(F.auth) }, "Sign out")), main));
   show(Math.min(Number(sessionStorage.getItem("tab") || 0), tabs.length - 1));
 }
 
-function overview({ S, years }) {
+function overview({ F, S, years, reload }) {
   const today = new Date().toLocaleDateString("en-CA"); const next = S.schedule.filter((r) => r.racing && r.end >= today)[0];
-  const st = S.standings; const i = st.national.findIndex(([t]) => t === st.team);
+  const st = S.standings; const i = st.national.findIndex(([t]) => t === st.team); const sy = S.sync; const m = msg();
+  const when = (isoTime) => (isoTime ? new Date(isoTime).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "never");
+  const NAMES = { results: "Race results", standings: "Points standings", schedule: "Race schedule" };
+  const rows = Object.entries(NAMES).map(([k, label]) => { const s = sy && sy.steps && sy.steps[k];
+    return el("tr", {}, el("td", {}, el("strong", {}, label)), el("td", {}, el("span", { class: "pill " + (!s ? "" : s.ok ? "g" : "y") }, !s ? "Not checked yet" : s.ok ? "Up to date" : "Couldn't check")), el("td", {}, !s ? "" : s.ok ? s.detail : `${s.error}. ${sy.lastGood && sy.lastGood[k] ? `Still showing what was read on ${when(sy.lastGood[k])}.` : "Still showing the numbers the site started with."}`)); });
   return [el("div", { class: "todo" },
     el("article", { class: "tcard hot" }, el("span", { class: "tag" }, "Next race"), el("h3", {}, next ? next.name : "No race picked"), el("p", {}, next ? `${next.loc} · starts ${next.start}` : "Open Race schedule and switch on the races the team is entering.")),
-    el("article", { class: "tcard" }, el("span", { class: "tag" }, "Standings"), el("h3", {}, i >= 0 ? `P${i + 1} nationally · ${st.national[i][1]} points` : "Not ranked"), el("p", {}, `Typed in on ${st.checkedAt}. Automatic updates aren't built yet.`)),
+    el("article", { class: "tcard" }, el("span", { class: "tag" }, "Standings"), el("h3", {}, i >= 0 ? `P${i + 1} nationally · ${st.national[i][1]} points` : "Not in the national top 20"), el("p", {}, `As of ${st.checkedAt}.`)),
     el("article", { class: "tcard" }, el("span", { class: "tag" }, "Results on record"), el("h3", {}, `${years.reduce((n, y) => n + S.seasons[y].length, 0)} race weekends`), el("p", {}, `${years[years.length - 1]} to ${years[0]}, from official timing.`))),
+    panel("Official results, standings and schedule", el("p", { class: "hint" }, `The site checks the official sources every morning at 6:00 ET. Last check: ${when(sy && sy.at)}.${sy && sy.failures > 1 ? ` It has failed ${sy.failures} times in a row.` : ""}`),
+      el("div", { class: "tbl plain" }, el("table", {}, el("tbody", {}, rows))),
+      el("div", { class: "rowacts" }, action("Check now", m, async () => { const r = await api(F, "/sync", {}); setTimeout(reload, 1500); return r.ok ? "Checked. Everything is up to date." : "Checked, but at least one source couldn't be read. See above after the page reloads."; }), m.node)),
     panel("How this works", el("p", { class: "hint" }, "Pick a section on the left, change what you need and press Save. The public site shows the change within about two minutes. “View the site” opens a fresh copy straight away."))];
 }
 
@@ -148,17 +156,31 @@ function photoField(F, me, label, current) {
   return { node: el("label", { class: "f" }, label, pic, input, m.node), get: () => url };
 }
 
-function cars({ F, me, S, fleetNums }) {
+function cars({ F, me, S, fleetNums, years }) {
   const nums = me.role === "owner" ? fleetNums : [me.car].filter(Boolean);
-  if (!nums.length) return [panel("My car", el("p", { class: "empty" }, "No car is linked to your login yet. Ask a site admin."))];
-  const addNum = field("Add a car number", "", { placeholder: "e.g. 47" }); const out = [];
-  for (const n of nums) {
-    const c = S.cars[n] || {}; const m = msg();
-    const f = { year: field("Year", c.year), make: field("Make", c.make), model: field("Model", c.model), story: field("Its story", c.story, { multiline: true, wide: true, hint: "where it came from, what broke, what it cost" }) }; const ph = photoField(F, me, "Photo", c.photo);
-    out.push(panel(`Car #${n}`, el("div", { class: "formgrid" }, f.year.node, f.make.node, f.model.node, ph.node, f.story.node), el("div", { class: "rowacts" }, action("Save", m, async () => { const data = { year: f.year.get(), make: f.make.get(), model: f.model.get(), story: f.story.get(), photo: ph.get() }; await setDoc(doc(F.db, "cars", n), data, { merge: true }); S.cars[n] = data; }), m.node)));
-  }
-  if (me.role === "owner") { const m = msg(); out.push(panel("Add a car", addNum.node, el("div", { class: "rowacts" }, action("Add", m, async () => { const n = addNum.get().replace(/^#/, ""); if (!/^\w{1,6}$/.test(n)) throw new Error("Type the car number."); await setDoc(doc(F.db, "cars", n), {}, { merge: true }); S.cars[n] = S.cars[n] || {}; setTimeout(() => location.reload(), 600); return "Added."; }), m.node))); }
-  return out;
+  if (!nums.length && me.role !== "owner") return [panel("My car", el("p", { class: "empty" }, "No car is linked to your login yet. Ask a site admin."))];
+  // When each number last raced, from the results on record.
+  const last = {}; for (const y of years) for (const ev of S.seasons[y]) for (const n of Object.keys(ev.cars)) if (!last[n] || ev.date > last[n].date) last[n] = ev;
+  const holder = el("div", { class: "stack" }); const picker = el("div", { class: "carpick" });
+  const open = (n) => {
+    [...picker.children].forEach((b) => b.classList.toggle("on", b.dataset.n === n)); sessionStorage.setItem("car", n);
+    const c = S.cars[n] || {}; const m = msg(); const lr = last[n];
+    const f = { name: field("Car name", c.name, { placeholder: "e.g. Lemon Drop", hint: "what the team calls it" }), year: field("Year", c.year), make: field("Make", c.make), model: field("Model", c.model), story: field("Its story", c.story, { multiline: true, wide: true, hint: "where it came from, what broke, what it cost" }) }; const ph = photoField(F, me, "Photo", c.photo);
+    const active = el("input", { type: "checkbox", checked: c.active !== false });
+    holder.replaceChildren(panel(`Car #${n}`, el("div", { class: "formgrid" }, f.name.node, el("label", { class: "f" }, "Status", el("span", { class: "rowacts" }, active, " Active (the team still has it)"), el("small", {}, lr ? `Last raced ${lr.date} · ${lr.race}, ${lr.track}` : "No race on record yet")), f.year.node, f.make.node, f.model.node, ph.node, f.story.node),
+      el("div", { class: "rowacts" }, action("Save", m, async () => { const data = { name: f.name.get(), year: f.year.get(), make: f.make.get(), model: f.model.get(), story: f.story.get(), photo: ph.get(), active: active.checked }; await setDoc(doc(F.db, "cars", n), data, { merge: true }); S.cars[n] = data; draw(null, n); }), m.node)));
+  };
+  const openNew = () => {
+    [...picker.children].forEach((b) => b.classList.toggle("on", b.dataset.n === "+")); const num = field("Car number", "", { placeholder: "e.g. 47" }); const m = msg();
+    holder.replaceChildren(panel("New car", el("p", { class: "hint" }, "Add a car before its first race. Cars that have raced appear here by themselves."), num.node, el("div", { class: "rowacts" }, action("Create", m, async () => { const n = num.get().replace(/^#/, ""); if (!/^[A-Za-z0-9]{1,6}$/.test(n)) throw new Error("Type the car number, for example 47."); if (nums.includes(n)) throw new Error(`Car #${n} is already in the list.`); await setDoc(doc(F.db, "cars", n), { active: true }, { merge: true }); S.cars[n] = { active: true }; nums.push(n); nums.sort((a, b) => a.localeCompare(b, "en", { numeric: true })); draw(n); return `Car #${n} created.`; }), m.node)));
+  };
+  // draw(sel) rebuilds the buttons and opens a car; draw(null, mark) only refreshes the buttons (after a save), keeping the form and its "Saved" message.
+  const draw = (sel, mark) => {
+    picker.replaceChildren(...nums.map((n) => el("button", { type: "button", "data-n": n, class: S.cars[n] && S.cars[n].active === false ? "off" : "", onclick: () => open(n) }, "#" + n, S.cars[n] && S.cars[n].name ? el("small", {}, S.cars[n].name) : null)), me.role === "owner" ? el("button", { type: "button", "data-n": "+", class: "new", onclick: openNew }, "＋ New car") : null);
+    if (sel) open(sel); else if (mark) [...picker.children].forEach((b) => b.classList.toggle("on", b.dataset.n === mark));
+  };
+  const first = nums.includes(sessionStorage.getItem("car")) ? sessionStorage.getItem("car") : nums[0]; draw(first); if (!first) openNew();
+  return [el("section", { class: "apanel" }, el("p", { class: "hint", style: "margin-bottom:12px" }, "Pick a car. Greyed-out numbers are marked inactive."), picker), holder];
 }
 
 async function gallery({ F, me, S, years }) {
@@ -166,6 +188,7 @@ async function gallery({ F, me, S, years }) {
   const raceNames = ["Paddock", ...years.slice(0, 2).flatMap((y) => S.seasons[y].map((ev) => `${ev.race} ${y}`))];
   const draw = async () => {
     const snap = await getDocs(query(collection(F.db, "photos"), orderBy("at", "desc"), limit(200)));
+    total = snap.size; room.textContent = ` · ${total} of ${LIMIT} used`; input.disabled = total >= LIMIT;
     const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => canPublish || p.by === me.uid);
     grid.replaceChildren(...(list.length ? list.map((p) => {
       const sel = el("select", { disabled: !canPublish, onchange: () => updateDoc(doc(F.db, "photos", p.id), { race: sel.value }) }, raceNames.map((r) => el("option", { value: r, selected: r === (p.race || "Paddock") }, r)));
@@ -174,37 +197,40 @@ async function gallery({ F, me, S, years }) {
           (canPublish || p.status !== "published") ? el("button", { type: "button", class: "abtn sm danger", onclick: async () => { await deleteDoc(doc(F.db, "photos", p.id)); if (p.path) await deleteObject(ref(F.storage, p.path)).catch(() => {}); draw(); } }, "Delete") : null));
     }) : [el("p", { class: "empty" }, "No photos yet.")]));
   };
+  const LIMIT = 20; let total = 0; const room = el("small", {});
   const input = el("input", { type: "file", accept: "image/*", multiple: true, onchange: async () => {
-    const files = [...input.files]; let done = 0; m.ok(`Uploading 0 of ${files.length}…`);
+    let files = [...input.files]; const left = LIMIT - total;
+    if (left <= 0) { input.value = ""; return m.err(`The gallery holds ${LIMIT} photos and it's full. Delete one to add another.`); }
+    const skipped = Math.max(0, files.length - left); files = files.slice(0, left);
+    let done = 0; m.ok(`Uploading 0 of ${files.length}…`);
     for (const file of files) { try { const up = await uploadImage(F, me, file); await addDoc(collection(F.db, "photos"), { ...up, race: "Paddock", caption: "", status: "new", by: me.uid, at: new Date().toISOString() }); m.ok(`Uploading ${++done} of ${files.length}…`); } catch (e) { console.error(e); m.err(e.message); } }
-    input.value = ""; if (done) m.ok(`${done} uploaded.${canPublish ? " Pick the race and press Publish." : " A site admin or car owner picks which ones go on the site."}`); draw();
+    input.value = ""; if (done) m.ok(`${done} uploaded.${skipped ? ` ${skipped} left out: the gallery holds ${LIMIT} photos.` : ""}${canPublish ? " Pick the race and press Publish." : " A site admin picks which ones go on the site."}`); draw();
   } });
   await draw();
-  const out = [panel("Upload photos", el("label", { class: "f" }, el("span", {}, "Choose photos", el("small", {}, " · phone photos are fine; they're resized automatically")), input), m.node), panel(canPublish ? "All photos" : "My photos", grid)];
-  if (me.role === "owner") { const ig = field("Instagram posts to show", (S.instagramPosts || []).join("\n"), { multiline: true, hint: "one post link per line" }); const m2 = msg();
+  const out = [panel("Upload photos", el("label", { class: "f" }, el("span", {}, "Choose photos", el("small", {}, " · phone photos are fine; they're resized automatically"), room), input), m.node), panel(canPublish ? "All photos" : "My photos", grid)];
+  if (me.role === "owner") { const ig = field("Instagram posts to show", (S.instagramPosts || []).join("\n"), { multiline: true, mic: false, hint: "one post link per line", placeholder: "https://www.instagram.com/p/…" }); const m2 = msg();
     out.push(panel("Instagram", ig.node, el("div", { class: "rowacts" }, action("Save", m2, async () => { const urls = ig.get().split(/\s+/).filter(Boolean).map((u) => u.split("?")[0]); const bad = urls.find((u) => !/^https:\/\/(www\.)?instagram\.com\/(p|reel)\/[\w-]+\/?$/.test(u)); if (bad) throw new Error(`This isn't an Instagram post link: ${bad}`); await setDoc(doc(F.db, "site", "gallery"), { instagramPosts: urls }); S.instagramPosts = urls; }), m2.node))); }
   return out;
 }
 
-async function people({ F, me, fleetNums }) {
-  const list = el("tbody", {}); const m = msg(); const ROLE = { owner: "Site admin", carowner: "Car owner", member: "Teammate" };
+async function people({ F, me, S }) {
+  const list = el("tbody", {}); const m = msg();
   const draw = async () => {
     const snap = await getDocs(collection(F.db, "people")); const rows = snap.docs.map((d) => ({ uid: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name));
     list.replaceChildren(...rows.map((p) => {
-      const role = el("select", {}, Object.entries(ROLE).map(([k, v]) => el("option", { value: k, selected: k === p.role }, v))); const car = el("select", {}, el("option", { value: "" }, "no car"), fleetNums.map((n) => el("option", { value: n, selected: n === p.car }, "#" + n)));
-      const show = el("input", { type: "checkbox", checked: !!p.showOnAbout, onchange: () => updateDoc(doc(F.db, "people", p.uid), { showOnAbout: show.checked }) });
-      return el("tr", {}, el("td", {}, el("strong", {}, p.name), el("small", {}, p.email)), el("td", {}, role), el("td", {}, car), el("td", {}, show),
-        el("td", {}, el("div", { class: "rowacts" }, action("Save", m, async () => { await api(F, "/role", { uid: p.uid, role: role.value, car: car.value }); return `${p.name} updated. They may need to sign in again.`; }, "sm"),
-          action("Email login link", m, async () => { await sendPasswordResetEmail(F.auth, p.email); return `Sent to ${p.email}.`; }, "sm quiet"),
-          p.uid !== me.uid ? action("Remove", m, async () => { if (!window.confirm(`Remove ${p.name}? Their login stops working.`)) return "Not removed."; await api(F, "/remove", { uid: p.uid }); await draw(); return `${p.name} removed.`; }, "sm danger") : null)));
+      const show = el("input", { type: "checkbox", checked: !!p.showOnAbout, "aria-label": `Show ${p.name} on the About page`, onchange: () => updateDoc(doc(F.db, "people", p.uid), { showOnAbout: show.checked }) });
+      const main = p.uid === S.mainAdmin;
+      return el("tr", {}, el("td", {}, el("strong", {}, p.name, main ? el("span", { class: "nexttag" }, "Main admin") : null), el("small", {}, p.email)), el("td", {}, p.title || "–"), el("td", {}, show),
+        el("td", {}, el("div", { class: "rowacts" }, action("Email login link", m, async () => { await sendPasswordResetEmail(F.auth, p.email); return `Sent to ${p.email}.`; }, "sm quiet"),
+          p.uid !== me.uid && !main ? action("Remove", m, async () => { if (!window.confirm(`Remove ${p.name}? Their login stops working.`)) return "Not removed."; await api(F, "/remove", { uid: p.uid }); await draw(); return `${p.name} removed.`; }, "sm danger") : null)));
     }));
   };
   await draw();
-  const name = field("Name", ""); const email = field("Email", "", { type: "email" }); const role = el("select", {}, Object.entries(ROLE).reverse().map(([k, v]) => el("option", { value: k }, v))); const car = el("select", {}, el("option", { value: "" }, "no car"), fleetNums.map((n) => el("option", { value: n }, "#" + n))); const m2 = msg();
-  return [panel("Invite someone", el("div", { class: "formgrid" }, name.node, email.node, el("label", { class: "f" }, "Role", role), el("label", { class: "f" }, el("span", {}, "Their car", el("small", {}, " · car owners only")), car)),
-    el("p", { class: "hint" }, "Site admins edit everything and manage people. Car owners edit their car and publish photos. Teammates upload photos. Tick “On About page” below for the people visitors should see, and give them a title in their card (for example “Team owner”). Each person gets an email with a link to set their password."),
-    el("div", { class: "rowacts" }, action("Send invite", m2, async () => { await api(F, "/invite", { name: name.get(), email: email.get(), role: role.value, car: car.value }); await sendPasswordResetEmail(F.auth, email.get()); await draw(); const who = email.get(); name.input.value = email.input.value = ""; return `Invite sent to ${who}.`; }), m2.node)),
-  panel("People", el("div", { class: "tbl plain" }, el("table", {}, el("thead", {}, el("tr", {}, ["Person", "Role", "Car", "On About page", ""].map((h) => el("th", {}, h)))), list)), m.node)];
+  const name = field("Name", ""); const email = field("Email", "", { type: "email" }); const m2 = msg();
+  return [panel("Add an admin", el("div", { class: "formgrid" }, name.node, email.node),
+    el("p", { class: "hint" }, "Everyone you add is an admin: they can edit every part of the site and add or remove other admins. They get an email with a link to set their password. The main admin can't be removed by anyone."),
+    el("div", { class: "rowacts" }, action("Send invite", m2, async () => { await api(F, "/invite", { name: name.get(), email: email.get() }); await sendPasswordResetEmail(F.auth, email.get()); await draw(); const who = email.get(); name.input.value = email.input.value = ""; return `Invite sent to ${who}.`; }), m2.node)),
+  panel("Admins", el("p", { class: "hint" }, "Tick “On About page” for the people visitors should see. Their title comes from their own card."), el("div", { class: "tbl plain" }, el("table", {}, el("thead", {}, el("tr", {}, ["Person", "Title", "On About page", ""].map((h) => el("th", {}, h)))), list)), m.node)];
 }
 
 async function myCard({ F, me }) {

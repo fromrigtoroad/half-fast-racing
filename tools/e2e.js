@@ -38,38 +38,61 @@ const BASE = "http://127.0.0.1:5000"; const PW = "emulator-only-" + Math.random(
   const h2 = await (await fetch(BASE + "/?fresh")).text(); assert.ok(/Next green flag<\/p><h2>Shine Country Classic/.test(h2), "countdown follows the schedule"); assert.ok(h2.includes("· #42"), "shows the car picked");
   console.log("ok  schedule drives the next race");
 
-  await tab(p, "Cars"); const car = p.locator(".apanel:has(h2:text-is('Car #42'))"); await car.locator("label.f:has-text('Make') input").fill("Mazda"); await car.locator("label.f:has-text('Model') input").fill("Miata"); await car.locator("button.abtn").click(); await saved(p, ".apanel:has(h2:text-is('Car #42'))");
-  assert.ok((await (await fetch(BASE + "/cars?fresh")).text()).includes("Mazda Miata"), "cars page shows the make");
-  console.log("ok  car edit");
+  await tab(p, "Cars"); const carPanel = (n) => p.locator(`.apanel:has(h2:text-is('Car #${n}'))`);
+  await p.click(".carpick button[data-n='42']"); await carPanel(42).locator("label.f:has-text('Car name') input").fill("Lemon Drop"); await carPanel(42).locator("label.f:has-text('Make') input").fill("Mazda"); await carPanel(42).locator("label.f:has-text('Model') input").fill("Miata"); await carPanel(42).locator("button.abtn").click(); await saved(p);
+  assert.ok((await carPanel(42).locator("label.f:has-text('Status')").innerText()).includes("Last raced 2026-11-07"), "shows when the car last raced");
+  await p.click(".carpick button[data-n='221']"); await carPanel(221).locator("label.f:has-text('Status') input").uncheck(); await carPanel(221).locator("button.abtn").click(); await saved(p);
+  await p.click(".carpick button.new"); await p.locator("label.f:has-text('Car number') input").fill("777"); await p.click("button:has-text('Create')"); await p.waitForSelector(".apanel:has(h2:text-is('Car #777'))");
+  const carsHtml = await (await fetch(BASE + "/cars?fresh")).text(); assert.ok(carsHtml.includes("Lemon Drop") && carsHtml.includes("Mazda Miata"), "cars page shows the name and make");
+  assert.ok(/id="retired"[\s\S]*id="car-221"/.test(carsHtml), "an inactive car moves to Retired"); assert.ok(carsHtml.includes('id="car-777"') && carsHtml.includes("Hasn't raced yet"), "a new car appears before its first race");
+  console.log("ok  cars: name, inactive → retired, new car");
 
   await tab(p, "Race reports"); await p.locator("label.f:has-text('Race report') textarea").fill("We finished.\n\nNothing caught fire."); await p.click("button:has-text('Save report')"); await saved(p);
   const res = await (await fetch(BASE + "/results?fresh")).text(); assert.ok(res.includes("Nothing caught fire."), "report shows"); assert.ok(res.includes("Every lap counted"), "results still render");
   console.log("ok  race report");
 
   await tab(p, "Gallery"); const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z8BQz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC", "base64");
-  await p.setInputFiles("input[type=file][multiple]", { name: "car.png", mimeType: "image/png", buffer: png }); await p.waitForSelector(".pcard"); await p.click(".pcard button:has-text('Publish')"); await p.waitForSelector(".pcard .pill.g");
+  const have = (await admin.firestore().collection("photos").get()).size; for (let i = have; i < 18; i++) await admin.firestore().collection("photos").add({ url: "https://example.test/x.jpg", path: "", race: "Paddock", caption: "", status: "new", by: "filler", at: `2020-01-01T00:00:${String(i).padStart(2, "0")}Z` });
+  await p.reload(); await p.waitForSelector(".pcard"); const file = (n) => ({ name: n, mimeType: "image/png", buffer: png });
+  await p.setInputFiles("input[type=file][multiple]", [file("a.png"), file("b.png"), file("c.png"), file("d.png")]); await p.waitForSelector(".msg.ok:has-text('left out')", { timeout: 30000 });
+  assert.equal((await admin.firestore().collection("photos").get()).size, 20, "the gallery stops at 20 photos"); assert.equal(await p.locator("input[type=file][multiple]").isDisabled(), true);
+  await p.locator(".pcard button:has-text('Publish')").first().click(); await p.waitForSelector(".pcard .pill.g");
   const gal = await (await fetch(BASE + "/gallery?fresh")).text(); assert.ok(/<div class="galgrid"><a href="http/.test(gal), "published photo is in the gallery");
   await p.locator("label.f:has-text('Instagram posts') textarea").fill("https://example.com/not-instagram"); await p.locator(".apanel:has(h2:text-is('Instagram')) button.abtn").click(); await p.waitForSelector(".apanel:has(h2:text-is('Instagram')) .msg.err");
   await p.locator("label.f:has-text('Instagram posts') textarea").fill("https://www.instagram.com/p/ABC123/?igsh=x"); await p.locator(".apanel:has(h2:text-is('Instagram')) button.abtn").click(); await saved(p, ".apanel:has(h2:text-is('Instagram'))");
   assert.ok((await (await fetch(BASE + "/gallery?fresh")).text()).includes('data-instgrm-permalink="https://www.instagram.com/p/ABC123/"'), "instagram post embedded");
-  console.log("ok  photo upload, publish, Instagram links (bad link refused)");
+  assert.equal(await p.locator(".apanel:has(h2:text-is('Instagram')) .micbtn").count(), 0, "no mic on the links box");
+  console.log("ok  photos: upload, 20-photo limit, publish, Instagram links (bad link refused)");
 
-  await tab(p, "People"); const inv = p.locator(".apanel:has(h2:text-is('Invite someone'))"); const carEmail = `carowner${stamp}@example.test`;
-  await inv.locator("label.f:has-text('Name') input").fill("Car Owner"); await inv.locator("label.f:has-text('Email') input").fill(carEmail); await inv.locator("label.f:has-text('Role') select").selectOption("carowner"); await inv.locator("label.f:has-text('Their car') select").selectOption("220"); await inv.locator("button.abtn").click(); await saved(p, ".apanel:has(h2:text-is('Invite someone'))");
-  const cu = await admin.auth().getUserByEmail(carEmail); assert.deepEqual(cu.customClaims, { role: "carowner", car: "220" });
-  assert.ok((await (await fetch(BASE + "/about?fresh")).text()).includes("Car Owner"), "car owner is on the About page");
-  await inv.locator("label.f:has-text('Name') input").fill("Dup"); await inv.locator("label.f:has-text('Email') input").fill(carEmail); await inv.locator("button.abtn").click(); await p.waitForSelector(".apanel:has(h2:text-is('Invite someone')) .msg.err");
-  console.log("ok  invite a car owner (duplicate email refused)");
+  await tab(p, "People"); const inv = p.locator(".apanel:has(h2:text-is('Add an admin'))"); const secondEmail = `second${stamp}@example.test`;
+  await inv.locator("label.f:has-text('Name') input").fill("Second Admin"); await inv.locator("label.f:has-text('Email') input").fill(secondEmail); await inv.locator("button.abtn").click(); await saved(p, ".apanel:has(h2:text-is('Add an admin'))");
+  const su = await admin.auth().getUserByEmail(secondEmail); assert.deepEqual(su.customClaims, { role: "owner", car: "" });
+  assert.ok(!(await (await fetch(BASE + "/about?fresh")).text()).includes("Second Admin"), "a new admin is not on the About page by default");
+  await p.locator("tr:has-text('Second Admin') input[type=checkbox]").check(); await p.waitForTimeout(800);
+  assert.ok((await (await fetch(BASE + "/about?fresh")).text()).includes("Second Admin"), "ticking the box puts them on the About page");
+  await inv.locator("label.f:has-text('Name') input").fill("Dup"); await inv.locator("label.f:has-text('Email') input").fill(secondEmail); await inv.locator("button.abtn").click(); await p.waitForSelector(".apanel:has(h2:text-is('Add an admin')) .msg.err");
+  const mainRow = p.locator("tr:has(.nexttag:text-is('Main admin'))"); assert.equal(await mainRow.count(), 1); assert.equal(await mainRow.locator("button:has-text('Remove')").count(), 0, "no Remove button on the main admin");
+  console.log("ok  add an admin (duplicate refused), About tick, main admin has no Remove");
+
+  await tab(p, "Overview"); await p.click("button:has-text('Check now')"); await p.waitForSelector(".apanel:has-text('Official results') .msg.ok, .apanel:has-text('Official results') .pill", { timeout: 120000 }); await p.waitForTimeout(2500);
+  assert.equal((await fetch(BASE + "/?fresh")).status, 200, "the site still renders after a check"); assert.ok((await (await fetch(BASE + "/results?fresh")).text()).includes("Every lap counted"));
+  console.log("ok  Check now runs and the site keeps rendering:", (await p.locator(".apanel:has-text('Official results') tbody").innerText()).replace(/\s+/g, " ").slice(0, 260));
   await p.screenshot({ path: process.env.SHOT || "/dev/null", fullPage: true }).catch(() => {});
 
-  // permissions: car owner and member
-  await admin.auth().updateUser(cu.uid, { password: PW });
+  // a second admin can't remove the main admin, even by calling the server directly
+  const mainUid = (await admin.auth().listUsers()).users.filter((u) => u.customClaims?.role === "owner").sort((a, b) => new Date(a.metadata.creationTime) - new Date(b.metadata.creationTime))[0].uid;
+  await admin.auth().updateUser(su.uid, { password: PW });
+  const tokenOf = async (email) => (await (await fetch("http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: PW, returnSecureToken: true }) })).json()).idToken;
+  const rm = await fetch(BASE + "/api/remove", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + (await tokenOf(secondEmail)) }, body: JSON.stringify({ uid: mainUid }) }); assert.equal(rm.status, 403, "the main admin can't be removed");
+  console.log("ok  the main admin can't be removed by another admin");
+
+  // older roles still hold in the rules (nobody is given them any more)
+  const carEmail = `carowner${stamp}@example.test`; const cu = { uid: await mk(carEmail, "Car Owner", "carowner", "220") };
   const p2 = await page(); await login(p2, carEmail); assert.deepEqual(await p2.locator(".aside nav button").allTextContents(), ["My car", "Gallery", "My card"]);
-  assert.equal(await p2.locator(".apanel h2").first().textContent(), "Car #220");
-  const denied = await p2.evaluate(async () => { const r = await fetch("/api/invite", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }); return r.status; }); assert.equal(denied, 401);
   const p3 = await page({ width: 390, height: 844 }); await login(p3, memberEmail); assert.deepEqual(await p3.locator(".aside nav button").allTextContents(), ["Photos", "My card"]);
   assert.equal(await p3.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "no sideways scroll on a phone");
-  console.log("ok  car owner and teammate see only their sections");
+  const p4 = await page({ width: 390, height: 844 }); await login(p4, ownerEmail); await tab(p4, "Cars"); assert.equal(await p4.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "admin cars page fits a phone");
+  console.log("ok  limited roles see only their sections; admin fits a phone");
 
   // security rules, straight at the database with each person's own token
   const token = async (email) => (await (await fetch("http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: PW, returnSecureToken: true }) })).json()).idToken;

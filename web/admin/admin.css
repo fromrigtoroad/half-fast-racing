@@ -18,3 +18,7 @@ button.abtn{font-family:var(--body);cursor:pointer}button.abtn:disabled{opacity:
 .empty{color:var(--mute);padding:8px 0}
 @media(max-width:900px){.formgrid{grid-template-columns:1fr}.aside nav button{width:auto;white-space:nowrap}}
 .abtn.quiet{background:transparent;color:var(--text);border-color:#2c3d58}
+.carpick{display:flex;flex-wrap:wrap;gap:8px}.carpick button{all:unset;box-sizing:border-box;cursor:pointer;font:900 italic 1.35rem/1 var(--disp);padding:9px 14px;border:1px solid #2c3d58;border-radius:8px;background:var(--bg);display:flex;flex-direction:column;gap:4px;min-width:58px}
+.carpick button small{font:600 .62rem/1 var(--body);letter-spacing:.06em;font-style:normal;color:var(--mute);text-transform:none}.carpick button:hover{border-color:var(--lemon)}.carpick button.on{background:var(--lemon);color:var(--ink);border-color:var(--lemon)}.carpick button.on small{color:var(--ink)}
+.carpick button.off:not(.on){opacity:.45}.carpick button.new{font:600 .86rem/1 var(--body);border-style:dashed;justify-content:center;color:var(--lemon)}.carpick button:focus-visible{outline:2px solid var(--lemon);outline-offset:2px}
+label.f>small{font-weight:400;color:var(--mute)}

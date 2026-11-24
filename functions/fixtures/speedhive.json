@@ -1,0 +1,290 @@
+{
+"events": [
+{
+"id": 3778041,
+"name": "24 Hours of Lemons-MSR Houston 2026",
+"startDate": "2026-11-06",
+"location": {
+"id": 542745,
+"name": "MSR Houston",
+"length": 2.38,
+"lengthUnit": "mi",
+"country": {
+"id": 840,
+"name": "United States",
+"alpha2": "US"
+},
+"lengthLabel": "2.3800 mi"
+}
+},
+{
+"id": 3765033,
+"name": "24 Hours of Lemons-Summit Point",
+"startDate": "2026-10-23",
+"location": {
+"id": 540507,
+"name": "Summit Point Motorsport Park",
+"length": 2.0,
+"lengthUnit": "mi",
+"country": {
+"id": 840,
+"name": "United States",
+"alpha2": "US"
+},
+"lengthLabel": "2.0000 mi"
+}
+},
+{
+"id": 3757511,
+"name": "24 Hours of Lemons-NHMS",
+"startDate": "2026-10-16",
+"location": {
+"id": 539270,
+"name": "New Hampshire Motor Speedway",
+"length": 1.7,
+"lengthUnit": "mi",
+"country": {
+"id": 840,
+"name": "United States",
+"alpha2": "US"
+},
+"lengthLabel": "1.7000 mi"
+}
+},
+{
+"id": 3749714,
+"name": "24 Hours of Lemons-Laguna Seca",
+"startDate": "2026-10-12",
+"location": {
+"id": 537965,
+"name": "Laguna Seca",
+"length": 2.238,
+"lengthUnit": "mi",
+"country": {
+"id": 840,
+"name": "United States",
+"alpha2": "US"
+},
+"lengthLabel": "2.2380 mi"
+}
+},
+{
+"id": 3731897,
+"name": "24 Hours of Lemons-Buttonwillow",
+"startDate": "2026-09-25",
+"location": {
+"id": 535088,
+"name": "Buttonwillow",
+"length": 3.1,
+"lengthUnit": "mi",
+"country": {
+"id": 840,
+"name": "United States",
+"alpha2": "US"
+},
+"lengthLabel": "3.1000 mi"
+}
+}
+],
+"sessions": {
+"3778041": {
+"sessions": [],
+"groups": [
+{
+"id": 3778044,
+"name": "24 Hours of Lemons",
+"date": "2025-01-29",
+"subGroups": [],
+"sessions": [
+{
+"id": 13079667,
+"name": "Texas Tippin' 2026",
+"comment": null,
+"eventId": 3778041,
+"type": "race",
+"startTime": "2026-11-07T10:00:00",
+"groupName": "24 Hours of Lemons",
+"isMerge": false,
+"resultStatus": "Provisional",
+"participated": 0,
+"eventRef": "/api/events/3778041"
+}
+]
+}
+]
+}
+},
+"classification": {
+"13079667": {
+"type": "Race",
+"rows": [
+{
+"totalTime": "14:05:29.453",
+"diffClass": {
+"lapsBehind": 3,
+"timeDifference": "00.000"
+},
+"difference": {
+"lapsBehind": 3,
+"timeDifference": "48.593"
+},
+"bestTime": "01:55.549",
+"numberOfLaps": 358,
+"bestLap": 354,
+"bestSpeed": 74.15,
+"name": "Half-Fast Racing",
+"status": "Normal",
+"startNumber": "42",
+"resultClass": "A",
+"accountId": null,
+"user": {
+"mstUserId": null,
+"chip": {
+"code": null
+},
+"productCategory": 0
+},
+"transponder": null,
+"transponderCategory": null,
+"positionInClass": 2,
+"additionalFields": [],
+"isQualified": true,
+"position": 3
+},
+{
+"totalTime": "14:05:49.879",
+"diffClass": {
+"lapsBehind": 76,
+"timeDifference": "00.000"
+},
+"difference": {
+"lapsBehind": 76,
+"timeDifference": "01:09.537"
+},
+"bestTime": "02:05.099",
+"numberOfLaps": 285,
+"bestLap": 228,
+"bestSpeed": 68.49,
+"name": "Half-Fast Racing",
+"status": "Normal",
+"startNumber": "17",
+"resultClass": "A",
+"accountId": null,
+"user": {
+"mstUserId": null,
+"chip": {
+"code": null
+},
+"productCategory": 0
+},
+"transponder": null,
+"transponderCategory": null,
+"positionInClass": 20,
+"additionalFields": [],
+"isQualified": true,
+"position": 48
+},
+{
+"totalTime": "13:17:49.753",
+"diffClass": {
+"lapsBehind": 73,
+"timeDifference": "00.000"
+},
+"difference": {
+"lapsBehind": 108,
+"timeDifference": "00.000"
+},
+"bestTime": "02:08.862",
+"numberOfLaps": 253,
+"bestLap": 165,
+"bestSpeed": 66.49,
+"name": "Half-Fast Racing",
+"status": "Normal",
+"startNumber": "37",
+"resultClass": "C",
+"accountId": null,
+"user": {
+"mstUserId": null,
+"chip": {
+"code": null
+},
+"productCategory": 0
+},
+"transponder": null,
+"transponderCategory": null,
+"positionInClass": 18,
+"additionalFields": [],
+"isQualified": true,
+"position": 66
+},
+{
+"totalTime": "14:04:07.756",
+"diffClass": {
+"lapsBehind": 0,
+"timeDifference": "00.000"
+},
+"difference": {
+"lapsBehind": 0,
+"timeDifference": "00.000"
+},
+"bestTime": "01:53.145",
+"numberOfLaps": 361,
+"bestLap": 287,
+"bestSpeed": 75.726,
+"name": "Team EcoBooze",
+"status": "Normal",
+"startNumber": "54",
+"resultClass": "A",
+"accountId": null,
+"user": {
+"mstUserId": null,
+"chip": {
+"code": null
+},
+"productCategory": 0
+},
+"transponder": null,
+"transponderCategory": null,
+"positionInClass": 1,
+"additionalFields": [],
+"isQualified": true,
+"position": 1
+},
+{
+"totalTime": "14:04:40.860",
+"diffClass": {
+"lapsBehind": 0,
+"timeDifference": "00.000"
+},
+"difference": {
+"lapsBehind": 3,
+"timeDifference": "00.000"
+},
+"bestTime": "01:58.240",
+"numberOfLaps": 358,
+"bestLap": 213,
+"bestSpeed": 72.463,
+"name": "Daisy Dukes Racing",
+"status": "Normal",
+"startNumber": "944",
+"resultClass": "B",
+"accountId": "MYLAPS-GA-bb56e16663fc4f27ac901d004ae308be",
+"user": {
+"mstUserId": "MYLAPS-GA-bb56e16663fc4f27ac901d004ae308be",
+"chip": {
+"code": "715026"
+},
+"productCategory": 0
+},
+"transponder": "715026",
+"transponderCategory": "OTHER",
+"positionInClass": 1,
+"additionalFields": [],
+"isQualified": true,
+"position": 2
+}
+],
+"_total": 121
+}
+}
+}

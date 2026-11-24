@@ -34,12 +34,21 @@ function table(evl, limit) {
 const img = (url, alt, cls = "") => `<img class="ph ${cls}" src="${e(url)}" alt="${e(alt)}" loading="lazy">`;
 const slot = (label, cls = "") => `<div class="slot ${cls}">${e(label)}</div>`;
 
-function carcard(S, n, f, cur, full) {
-  const info = S.cars[n] || {};
-  const name = [info.year, info.make, info.model].filter(Boolean).join(" ");
-  const res = full ? `<ul class="cres">${f.res.slice(0, 4).map(([ev, c]) => `<li><span>${day(ev.date)} · ${e(ev.track)}</span><b>P${c.pos}</b></li>`).join("")}</ul>` : "";
-  const story = full && info.story ? `<div class="cstory">${paras(info.story)}</div>` : "";
-  return `<article class="car"><div class="carhead"><div class="num">${e(n)}</div><span class="cls">Class ${e(f.cls || "?")}</span></div>${info.photo ? img(info.photo, name || `Car #${n}`) : slot("Photo coming")}${name ? `<h3 class="cname">${e(name)}</h3>` : ""}<dl><div><dt>Starts ${cur}</dt><dd>${f.starts}</dd></div><div><dt>Best</dt><dd>P${f.best}</dd></div><div><dt>Laps</dt><dd>${num(f.laps)}</dd></div></dl>${res}${story}</article>`;
+const fullDay = (iso) => `${day(iso)}, ${iso.slice(0, 4)}`;
+const carTitle = (info) => [info.year, info.make, info.model].filter(Boolean).join(" ");
+const isActive = (S, n) => !(S.cars[n] && S.cars[n].active === false);
+/** One car. f = this season's numbers (may be undefined), all = career numbers (may be undefined for a car that hasn't raced yet). */
+function carcard(S, n, f, all, cur, mode) {
+  const info = S.cars[n] || {}; const title = carTitle(info); const last = all && all.res[0];
+  const head = `<div class="carhead"><div class="num">${e(n)}</div><span class="cls">${isActive(S, n) ? `Class ${e((f || all || {}).cls || "?")}` : "Retired"}</span></div>`;
+  const names = `${info.name ? `<h3 class="cname">${e(info.name)}</h3>` : ""}${title ? `<p class="cmodel">${e(title)}</p>` : ""}`;
+  const lastLine = last ? `<p class="clast">Last raced ${fullDay(last[0].date)} · ${e(last[0].track)}</p>` : `<p class="clast">Hasn't raced yet</p>`;
+  if (mode === "retired") return `<article class="car retired" id="car-${e(n)}">${head}${names}${all ? `<dl><div><dt>Starts</dt><dd>${all.starts}</dd></div><div><dt>Best</dt><dd>P${all.best}</dd></div><div><dt>Laps</dt><dd>${num(all.laps)}</dd></div></dl>` : ""}${lastLine}</article>`;
+  const s = f || all; const label = f ? `Starts ${cur}` : "Starts";
+  const stats = s ? `<dl><div><dt>${label}</dt><dd>${s.starts}</dd></div><div><dt>Best</dt><dd>P${s.best}</dd></div><div><dt>Laps</dt><dd>${num(s.laps)}</dd></div></dl>` : "";
+  const res = mode === "full" && all ? `<ul class="cres">${all.res.slice(0, 3).map(([ev, c]) => `<li><span>${fullDay(ev.date)} · ${e(ev.track)}</span><b>P${c.pos}</b></li>`).join("")}</ul>` : "";
+  const story = mode === "full" && info.story ? `<div class="cstory">${paras(info.story)}</div>` : "";
+  return `<article class="car" id="car-${e(n)}">${head}${info.photo ? img(info.photo, info.name || title || `Car #${n}`) : slot("Photo coming")}${names}${stats}${mode === "full" ? lastLine : ""}${res}${story}</article>`;
 }
 
 const NAV = [["home", "Home", "/"], ["results", "Results", "/results"], ["cars", "Cars", "/cars"], ["about", "About", "/about"], ["gallery", "Gallery", "/gallery"]];
@@ -72,7 +81,7 @@ function home(S, ctx) {
   const tower = nat.length ? `<aside class="tower" aria-label="National team points"><div class="th"><span>National points · Teams</span><span>${e(st.season)}</span></div>${nat.slice(0, 5).map(([t, p], i) => `<div class="trow${t === st.team ? " us" : ""}"><b>${i + 1}</b><span>${e(t)}</span><i>${p}</i></div>`).join("")}${(st.conferences || []).length ? `<div class="conf">${st.conferences.map((c) => `<div><b>P${c.rank}</b><span>${e(c.name)} · ${c.points} pts</span></div>`).join("")}</div>` : ""}<div class="tf">Official standings, 24hoursoflemons.com. Checked ${day(st.checkedAt)}, ${st.checkedAt.slice(0, 4)}.</div></aside>` : "";
   const others = last ? lead(last).slice(1) : [];
   const note = last ? (last.note ? e(last.note) : `P${lc.pos} overall${lc.pic ? ` and P${lc.pic} in Class ${e(lc.cls)}` : ""}, with ${lc.laps} laps.${others.length ? " " + others.map(([m, x]) => `Car #${e(m)} finished P${x.pos}`).join(", ") + "." : ""}`) : "";
-  const fourCars = FL.slice(0, 4).map(([n, f]) => carcard(S, n, f, CUR, false)).join("");
+  const fourCars = FL.filter(([n]) => isActive(S, n)).slice(0, 4).map(([n, f]) => carcard(S, n, f, ctx.CAREER[n], CUR, "home")).join("");
   return `<section class="hero"><div class="wrap">${ln ? `<div class="ghost" aria-hidden="true">${e(ln)}</div>` : ""}<div class="herogrid"><div><p class="kicker">${e(C.kicker)}</p><h1>${h.join("<br>")}</h1><p class="lede">${e(C.lede)}${rankLine}</p><div class="btns"><a class="btn" href="/results">See the results <span>→</span></a><a class="btn alt" href="/cars">Meet the cars</a></div></div><img class="sticker" src="/logo.webp" width="1237" height="688" alt="Half Fast Racing team logo"></div></div>
 <div class="wrap"><div class="statbar">${rank ? stat("P" + rank, "National points", true) + stat(points, "Points") : ""}${stat(A.races, "Race weekends " + CUR)}${stat(A.best ? "P" + A.best : "–", "Best finish")}${stat(num(A.laps), "Laps completed")}</div></div></section>
 ${nx ? `<section class="wrap"><div class="nextrace"><div><p class="kicker">Next green flag</p><h2>${e(nx.name)}</h2><p class="where">${e(nx.loc)} · ${fmtRange(nx)}${(nx.cars || []).length ? " · " + nx.cars.map((c) => "#" + e(c)).join(" ") : ""}</p></div><div class="clock" data-t="${nx.start}T09:00:00-05:00"><div><b>--</b><span>Days</span></div><div><b>--</b><span>Hrs</span></div><div><b>--</b><span>Min</span></div></div></div></section>` : ""}
@@ -93,8 +102,15 @@ function results(S, ctx, y) {
 }
 
 function cars(S, ctx) {
-  const { CUR, FL } = ctx;
-  return `<section class="pagehead"><div class="wrap"><p class="kicker">The fleet</p><h1>Cheap cars, raced hard</h1><p class="lede">${FL.length} cars have run under the Half Fast banner in ${CUR}. The numbers are from official timing.</p></div></section><section class="wrap"><div class="fleet big">${FL.map(([n, f]) => carcard(S, n, f, CUR, true)).join("")}</div></section>`;
+  const { CUR, FL, CAREER } = ctx; const season = Object.fromEntries(FL);
+  const byNum = (a, b) => a.localeCompare(b, "en", { numeric: true });
+  // Cars that raced this season come first, busiest first; then cars added in the admin that haven't raced this season.
+  const all = [...new Set([...FL.map(([n]) => n), ...Object.keys(S.cars).sort(byNum)])];
+  const active = all.filter((n) => isActive(S, n)); const retired = all.filter((n) => !isActive(S, n)).sort(byNum);
+  const jump = `<nav class="carnav" aria-label="Cars">${active.map((n) => `<a href="#car-${e(n)}">#${e(n)}</a>`).join("")}${retired.length ? `<a class="ret" href="#retired">Retired (${retired.length})</a>` : ""}</nav>`;
+  return `<section class="pagehead"><div class="wrap"><p class="kicker">The fleet</p><h1>Cheap cars, raced hard</h1><p class="lede">${active.length} car${active.length === 1 ? "" : "s"} in the garage${retired.length ? `, ${retired.length} retired` : ""}. The numbers are from official timing.</p>${jump}</div></section>
+<section class="wrap"><div class="fleet big">${active.map((n) => carcard(S, n, season[n], CAREER[n], CUR, "full")).join("")}</div></section>
+${retired.length ? `<section class="wrap" id="retired"><div class="sechead"><div><p class="kicker">No longer with us</p><h2>Retired cars</h2></div></div><div class="fleet">${retired.map((n) => carcard(S, n, season[n], CAREER[n], CUR, "retired")).join("")}</div></section>` : ""}`;
 }
 
 function about(S, ctx) {
@@ -121,7 +137,8 @@ function gallery(S, ctx) {
 function renderPage(S, path, today) {
   const YL = Object.keys(S.seasons).filter((y) => (S.seasons[y] || []).length).sort().reverse();
   const CUR = YL[0]; const cur = CUR ? S.seasons[CUR] : [];
-  const ctx = { YL, CUR, cur, today, A: agg(cur), ALL: agg(YL.flatMap((y) => S.seasons[y])), FL: fleet(cur) };
+  const everything = YL.flatMap((y) => S.seasons[y]);
+  const ctx = { YL, CUR, cur, today, A: agg(cur), ALL: agg(everything), FL: fleet(cur), CAREER: Object.fromEntries(fleet(everything)) };
   const p = path.replace(/\/+$/, "") || "/";
   if (p === "/") return { status: 200, html: shell(S, "home", "Half Fast Racing · 24 Hours of Lemons team", home(S, ctx)) };
   if (p === "/results" && CUR) return { status: 200, html: shell(S, "results", "Results · Half Fast Racing", results(S, ctx, CUR)) };
@@ -132,4 +149,4 @@ function renderPage(S, path, today) {
   if (p === "/gallery") { const g = gallery(S, ctx); return { status: 200, html: shell(S, "gallery", "Gallery · Half Fast Racing", g.body, g.extra) }; }
   return { status: 404, html: shell(S, "", "Not found · Half Fast Racing", `<section class="pagehead"><div class="wrap"><p class="kicker">404</p><h1>Off track</h1><p class="lede">That page isn't here. <a href="/" style="color:var(--lemon)">Back to the pits →</a></p></div></section>`) };
 }
-module.exports = { renderPage, agg, fleet, nextRace };
+module.exports = { renderPage, agg, fleet, nextRace, isActive };

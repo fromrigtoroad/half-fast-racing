@@ -1,1 +1,21 @@
-{ "projects": { "default": "half-fast-racing" } }
+{
+  "projects": {
+    "default": "half-fast-racing"
+  },
+  "targets": {
+    "half-fast-racing": {
+      "storage": {
+        "photos": [
+          "half-fast-racing.firebasestorage.app"
+        ]
+      }
+    },
+    "demo-hfr": {
+      "storage": {
+        "photos": [
+          "demo-hfr.appspot.com"
+        ]
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 const seed = require("./seed.json");
 let cache = null; let cacheAt = 0;
 const TTL_MS = 30_000;
+const PHOTO_LIMIT = 20; // keeps storage small; the admin enforces the same number on upload
 
 /** Pure merge, exported for tests. `docs` is what Firestore returned (missing docs are undefined / empty). */
 function mergeState(docs) {
@@ -15,10 +16,11 @@ function mergeState(docs) {
   if (docs.gallery && Array.isArray(docs.gallery.instagramPosts)) S.instagramPosts = docs.gallery.instagramPosts;
   for (const [year, d] of Object.entries(docs.seasons || {})) if (Array.isArray(d.events) && d.events.length) S.seasons[year] = d.events;
   S.cars = docs.cars || {};
+  S.sync = docs.sync || null;
   S.owners = (docs.people || []).filter((p) => p.showOnAbout)
     // People with a title but no car (the team owner, a crew chief) first, then car owners by number.
     .sort((a, b) => (a.car ? 1 : 0) - (b.car ? 1 : 0) || String(a.car || "").localeCompare(String(b.car || ""), "en", { numeric: true }) || String(a.name).localeCompare(String(b.name)));
-  S.photos = (docs.photos || []).filter((p) => p.status === "published").sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+  S.photos = (docs.photos || []).filter((p) => p.status === "published").sort((a, b) => String(b.at || "").localeCompare(String(a.at || ""))).slice(0, PHOTO_LIMIT);
   return S;
 }
 
@@ -30,9 +32,9 @@ async function loadState(db, { fresh = false } = {}) {
   ]);
   const byId = (snap) => Object.fromEntries(snap.docs.map((d) => [d.id, d.data()]));
   const s = byId(site);
-  cache = mergeState({ content: s.content, standings: s.standings, schedule: s.schedule, gallery: s.gallery, seasons: byId(seasons), cars: byId(cars),
+  cache = mergeState({ content: s.content, standings: s.standings, schedule: s.schedule, gallery: s.gallery, sync: s.sync, seasons: byId(seasons), cars: byId(cars),
     people: people.docs.map((d) => ({ uid: d.id, ...d.data() })), photos: photos.docs.map((d) => ({ id: d.id, ...d.data() })) });
   cacheAt = Date.now();
   return cache;
 }
-module.exports = { loadState, mergeState, seed };
+module.exports = { loadState, mergeState, seed, PHOTO_LIMIT };
