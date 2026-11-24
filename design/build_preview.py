@@ -116,6 +116,15 @@ P['about']=f"""<section class="pagehead"><div class="wrap"><p class="kicker">Abo
 <section class="wrap"><div class="sechead"><div><p class="kicker">Who runs it</p><h2>Owners</h2></div></div>
 <div class="people">{''.join(f"<article class='person'><div class='slot sq'>Photo</div><p class='role'>{r}</p><h3>{e(h)}</h3><p class='tbd'>{e(d)}. Name and bio from the owner.</p></article>" for h,d,r in own)}</div>
 <p class="src">Only the team owner and car owners are listed. Drivers change from race to race.</p></section>"""
+SCH=[s for s in json.load(open('schedule.json')) if s['name']!='Race Info'][:8]
+def schrow(i,s):
+    on=('Scrotium' in s['name']); closed=(i==0)
+    nm=re.sub(r'\s*20\d\d','',s['name']); d=s['date'].replace(' - ','–').replace(', 2026','').replace(', 2027',' ’27')
+    cars="<span class='chip'>#42</span><span class='chip'>#220</span><span class='chip'>#221</span><span class='chip add'>＋ car</span>" if on else "<span class='chip add'>＋ car</span>"
+    return f"<tr class='{'in' if on else ''}'><td><button class='tog' type='button' aria-pressed='{'true' if on else 'false'}' aria-label='Racing {e(nm)}'><i></i></button></td><td class='d'>{e(d)}</td><td><strong>{e(nm)}</strong>{'<span class=nexttag>Next race</span>' if on else ''}<small>{e(s['loc'])}</small></td><td class='d'>{'Closed' if closed else e(s['deadline'].replace(', 2026','').replace(', 2027',''))}</td><td class='carsel'>{cars}</td></tr>"
+SCHED=f"""<section class="apanel"><div class="ph"><h2>Race schedule</h2><span class="saved">From the official Lemons schedule · refreshed weekly</span></div>
+<p class="hint" style="margin-bottom:14px">Switch on the races the team is entering and pick the cars. The home page countdown and the results check both follow this list.</p>
+<div class="tbl plain"><table><thead><tr><th>Racing?</th><th>Date</th><th>Race</th><th>Entry deadline</th><th>Cars</th></tr></thead><tbody>{''.join(schrow(i,s) for i,s in enumerate(SCH))}</tbody></table></div></section>"""
 MIC='<span class="mic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg></span>'
 P['admin']=f"""<div class="adm"><aside class="aside"><div class="abrand"><b>Half Fast</b> <span>Admin</span></div>
 <nav>{''.join(f"<a class='{'on' if i==0 else ''}' href='#admin'>{x}</a>" for i,x in enumerate(['Overview','Races & reports','Cars','About the team','Gallery','Home page','People','Settings']))}</nav>
@@ -124,6 +133,7 @@ P['admin']=f"""<div class="adm"><aside class="aside"><div class="abrand"><b>Half
 <div class="todo"><article class="tcard hot"><span class="tag">Needs you</span><h3>Race report ready: {e(last['race'])}</h3><p>The official result came in (P{lc['pos']} of {last['of']}). A draft report is written. Read it, fix it, publish it.</p><div class="acts"><a class="abtn">Review draft</a><a class="abtn ghost">Skip</a></div></article>
 <article class="tcard"><span class="tag">Photos</span><h3>14 new photos to sort</h3><p>Uploaded by 2 teammates from MSR Houston. Pick the ones for the gallery.</p><div class="acts"><a class="abtn">Sort photos</a></div></article>
 <article class="tcard"><span class="tag">Team</span><h3>2 car owners haven't sent their info</h3><p>Their form links are still unopened.</p><div class="acts"><a class="abtn">Send a reminder</a></div></article></div>
+{SCHED}
 <div class="agrid"><section class="apanel"><div class="ph"><h2>Official results</h2><span class="ok">● Up to date</span></div>
 <dl class="sync"><div><dt>Last checked</dt><dd>Mon Nov 23, 6:00 AM</dd></div><div><dt>Next check</dt><dd>Mon Nov 30</dd></div><div><dt>Races on record</dt><dd>{ALL['races']}</dd></div><div><dt>National points</dt><dd>P2 · 158</dd></div></dl>
 <p class="hint">The site checks Lemons and the official timing every Monday, and the day after each race. You don't have to type results.</p><div class="acts"><a class="abtn ghost">Check now</a><a class="abtn ghost">Fix a result</a></div></section>
@@ -152,7 +162,7 @@ FOOT=f"""<footer><div class="wrap fgrid"><div><a class="brand" href="{L('home')}
 <div><h4>Site</h4>{''.join(f"<a href='{L(k)}'>{v}</a>" for k,v in NAV[1:])}</div><div><h4>Data</h4><a href="https://24hoursoflemons.com/standings" target="_blank" rel="noopener">Lemons standings ↗</a><a href="https://speedhive.mylaps.com/Organizations/145414" target="_blank" rel="noopener">Official timing ↗</a></div></div>
 <div class="wrap legal">© 2026 Half Fast Racing. An independent team site, not run by 24 Hours of Lemons. <a class="prev" href="#admin">Preview only: open the admin mock-up →</a></div></footer>"""
 CSS=open('style2.css').read()
-JS="""function tick(){document.querySelectorAll('.clock').forEach(function(c){var s=Math.max(0,new Date(c.dataset.t)-Date.now())/1e3,b=c.querySelectorAll('b');b[0].textContent=Math.floor(s/86400);b[1].textContent=String(Math.floor(s%86400/3600)).padStart(2,'0');b[2].textContent=String(Math.floor(s%3600/60)).padStart(2,'0')})}tick();setInterval(tick,30000);"""
+JS="""document.addEventListener('click',function(ev){var b=ev.target.closest('.tog');if(!b)return;var on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',on);b.closest('tr').classList.toggle('in',on)});function tick(){document.querySelectorAll('.clock').forEach(function(c){var s=Math.max(0,new Date(c.dataset.t)-Date.now())/1e3,b=c.querySelectorAll('b');b[0].textContent=Math.floor(s/86400);b[1].textContent=String(Math.floor(s%86400/3600)).padStart(2,'0');b[2].textContent=String(Math.floor(s%3600/60)).padStart(2,'0')})}tick();setInterval(tick,30000);"""
 HEAD="<title>Half Fast Racing</title>\n<meta name=\"description\" content=\"Half Fast Racing: a 24 Hours of Lemons endurance team, racing $500 cars for more than ten years.\">"
 # single-file (artifact, hash views)
 MULTI=False

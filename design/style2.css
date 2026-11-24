@@ -149,3 +149,10 @@ h1,h2,h3,h4,.brand,.abrand,.tabs a,.av{font-style:italic}.tcard h3,.apanel h2{fo
 .herogrid{grid-template-columns:1.1fr .9fr}.hero h1{font-size:clamp(4.2rem,10.5vw,9.6rem)}
 .paper .receipt{color:#111}.fb{color:var(--lemon)}
 @media(max-width:900px){.sticker{width:270px}}
+
+.tog{width:46px;height:26px;border-radius:20px;border:1px solid #2c3d58;background:var(--bg);position:relative;cursor:pointer;padding:0}.tog i{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#5f6f88;transition:left .15s,background .15s}
+.tog[aria-pressed=true]{background:var(--lemon);border-color:var(--lemon)}.tog[aria-pressed=true] i{left:23px;background:var(--ink)}
+.tbl.plain tr.in{background:rgba(255,214,10,.06)}.tbl.plain tr:not(.in) .carsel{opacity:.35}
+.nexttag{font:600 .62rem/1 var(--body);letter-spacing:.12em;text-transform:uppercase;background:var(--lemon);color:var(--ink);border-radius:20px;padding:4px 8px;margin-left:8px;vertical-align:middle}
+.chip.add{border-style:dashed}
+.nexttag{white-space:nowrap;display:inline-block}
