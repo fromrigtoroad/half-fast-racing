@@ -27,7 +27,7 @@ gcloud services enable iamcredentials.googleapis.com sts.googleapis.com iam.goog
   firebase.googleapis.com firebasehosting.googleapis.com cloudfunctions.googleapis.com run.googleapis.com \
   cloudbuild.googleapis.com artifactregistry.googleapis.com eventarc.googleapis.com pubsub.googleapis.com \
   firestore.googleapis.com firebasestorage.googleapis.com storage.googleapis.com identitytoolkit.googleapis.com \
-  cloudscheduler.googleapis.com secretmanager.googleapis.com "${G[@]}"
+  cloudscheduler.googleapis.com secretmanager.googleapis.com cloudbilling.googleapis.com firebaseextensions.googleapis.com "${G[@]}"
 
 echo "2/5 Database"
 # A service that was just switched on can take a few minutes to be usable, so this step retries.
