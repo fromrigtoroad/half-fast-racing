@@ -214,24 +214,32 @@ async function gallery({ F, me, S, years }) {
   return out;
 }
 
+/** A login link to copy and text: shown in a box (copying from code can be refused), and copied when the browser allows. */
+function linkBox() {
+  const input = el("input", { type: "text", readonly: true, class: "linkout", "aria-label": "Login link", onclick: () => input.select() });
+  const node = el("div", { class: "linkbox", hidden: true }, el("small", {}, "Text this link to them. It works for one hour, once."), input);
+  return { node, async show(link) { input.value = link; node.hidden = false; input.select(); try { await navigator.clipboard.writeText(link); return true; } catch { return false; } } };
+}
+
 async function people({ F, me, S }) {
-  const list = el("tbody", {}); const m = msg();
+  const list = el("tbody", {}); const m = msg(); const box = linkBox();
   const draw = async () => {
     const snap = await getDocs(collection(F.db, "people")); const rows = snap.docs.map((d) => ({ uid: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name));
     list.replaceChildren(...rows.map((p) => {
       const show = el("input", { type: "checkbox", checked: !!p.showOnAbout, "aria-label": `Show ${p.name} on the About page`, onchange: () => updateDoc(doc(F.db, "people", p.uid), { showOnAbout: show.checked }) });
       const main = p.uid === S.mainAdmin;
       return el("tr", {}, el("td", {}, el("strong", {}, p.name, main ? el("span", { class: "nexttag" }, "Main admin") : null), el("small", {}, p.email)), el("td", {}, p.title || "–"), el("td", {}, show),
-        el("td", {}, el("div", { class: "rowacts" }, action("Email login link", m, async () => { await sendPasswordResetEmail(F.auth, p.email); return `Sent to ${p.email}.`; }, "sm quiet"),
+        el("td", {}, el("div", { class: "rowacts" }, action("Email login link", m, async () => { await sendPasswordResetEmail(F.auth, p.email); return `Sent to ${p.email}. Not there? Check spam, or copy a link to text them.`; }, "sm quiet"),
+          action("Copy login link", m, async () => { const r = await api(F, "/link", { uid: p.uid }); const copied = await box.show(r.link); return `${copied ? "Copied" : "Here's"} ${p.name}'s login link, below.`; }, "sm quiet"),
           p.uid !== me.uid && !main ? action("Remove", m, async () => { if (!window.confirm(`Remove ${p.name}? Their login stops working.`)) return "Not removed."; await api(F, "/remove", { uid: p.uid }); await draw(); return `${p.name} removed.`; }, "sm danger") : null)));
     }));
   };
   await draw();
-  const name = field("Name", ""); const email = field("Email", "", { type: "email" }); const m2 = msg();
+  const name = field("Name", ""); const email = field("Email", "", { type: "email" }); const m2 = msg(); const box2 = linkBox();
   return [panel("Add an admin", el("div", { class: "formgrid" }, name.node, email.node),
-    el("p", { class: "hint" }, "Everyone you add is an admin: they can edit every part of the site and add or remove other admins. They get an email with a link to set their password. The main admin can't be removed by anyone."),
-    el("div", { class: "rowacts" }, action("Send invite", m2, async () => { await api(F, "/invite", { name: name.get(), email: email.get() }); await sendPasswordResetEmail(F.auth, email.get()); await draw(); const who = email.get(); name.input.value = email.input.value = ""; return `Invite sent to ${who}.`; }), m2.node)),
-  panel("Admins", el("p", { class: "hint" }, "Tick “On About page” for the people visitors should see. Their title comes from their own card."), el("div", { class: "tbl plain" }, el("table", {}, el("thead", {}, el("tr", {}, ["Person", "Title", "On About page", ""].map((h) => el("th", {}, h)))), list)), m.node)];
+    el("p", { class: "hint" }, "Everyone you add is an admin: they can edit every part of the site and add or remove other admins. They get an email from noreply@half-fast-racing.firebaseapp.com with a link to set their password; it often lands in spam. You also get the link here to text them. The main admin can't be removed by anyone."),
+    el("div", { class: "rowacts" }, action("Send invite", m2, async () => { const r = await api(F, "/invite", { name: name.get(), email: email.get() }); const who = email.get(); await sendPasswordResetEmail(F.auth, who).catch(() => {}); await draw(); name.input.value = email.input.value = ""; const copied = await box2.show(r.link); return `Invite emailed to ${who}. ${copied ? "The link is also copied" : "Here's the link too"}, to text them.`; }), m2.node), box2.node),
+  panel("Admins", el("p", { class: "hint" }, "Tick “On About page” for the people visitors should see. Their title comes from their own card."), el("div", { class: "tbl plain" }, el("table", {}, el("thead", {}, el("tr", {}, ["Person", "Title", "On About page", ""].map((h) => el("th", {}, h)))), list)), m.node, box.node)];
 }
 
 async function myCard({ F, me }) {

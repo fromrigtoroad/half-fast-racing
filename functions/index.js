@@ -43,6 +43,9 @@ async function caller(req) {
   try { return await admin.auth().verifyIdToken(m[1], true); } catch { throw new HttpError(401, "Your sign-in has expired. Sign in again."); }
 }
 const clean = (s, max) => String(s ?? "").trim().slice(0, max);
+// A set-your-password link to text someone when the email doesn't arrive (Yahoo and others often filter
+// Firebase's sender). Firebase makes it work for one hour; it lands on the admin once the password is set.
+const loginLink = (email) => admin.auth().generatePasswordResetLink(email, { url: "https://half-fast-racing.web.app/admin" });
 
 // Owner-only account management. Everything else the admin does goes straight to Firestore under the security rules.
 exports.api = onRequest({ timeoutSeconds: 300 }, async (req, res) => {
@@ -66,7 +69,12 @@ exports.api = onRequest({ timeoutSeconds: 300 }, async (req, res) => {
       catch (err) { if (err.code === "auth/email-already-exists") throw new HttpError(409, "Someone with that email already has a login."); throw err; }
       await admin.auth().setCustomUserClaims(user.uid, { role: "owner", car: "" });
       await db.collection("people").doc(user.uid).set({ name, email, role: "owner", car: "", bio: "", photo: "", title: "", showOnAbout: false, invitedAt: new Date().toISOString() });
-      return res.json({ ok: true, uid: user.uid });
+      return res.json({ ok: true, uid: user.uid, link: await loginLink(email) });
+    }
+    if (route === "/link") {
+      const user = await admin.auth().getUser(clean(b.uid, 128)).catch(() => { throw new HttpError(404, "That person has no login."); });
+      if (!user.email) throw new HttpError(400, "That login has no email.");
+      return res.json({ ok: true, email: user.email, link: await loginLink(user.email) });
     }
     if (route === "/remove") {
       const uid = clean(b.uid, 128);

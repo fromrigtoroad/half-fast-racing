@@ -71,6 +71,11 @@ const BASE = "http://127.0.0.1:5000"; const PW = "emulator-only-" + Math.random(
   await tab(p, "People"); const inv = p.locator(".apanel:has(h2:text-is('Add an admin'))"); const secondEmail = `second${stamp}@example.test`;
   await inv.locator("label.f:has-text('Name') input").fill("Second Admin"); await inv.locator("label.f:has-text('Email') input").fill(secondEmail); await inv.locator("button.abtn").click(); await saved(p, ".apanel:has(h2:text-is('Add an admin'))");
   const su = await admin.auth().getUserByEmail(secondEmail); assert.deepEqual(su.customClaims, { role: "owner", car: "" });
+  // The invite also gives a login link to text them (emails from Firebase often land in spam).
+  assert.match(await inv.locator(".linkout").inputValue(), /mode=resetPassword/, "the invite shows a login link to text");
+  await p.locator("tr:has-text('Second Admin') button:has-text('Copy login link')").click();
+  await p.waitForFunction(() => [...document.querySelectorAll(".linkout")].some((i) => i.closest(".linkbox") && !i.closest(".linkbox").hidden && i.value.includes("resetPassword") && !i.closest(".apanel h2")));
+
   assert.ok(!(await (await fetch(BASE + "/about?fresh")).text()).includes("Second Admin"), "a new admin is not on the About page by default");
   await p.locator("tr:has-text('Second Admin') input[type=checkbox]").check(); await p.waitForTimeout(800);
   assert.ok((await (await fetch(BASE + "/about?fresh")).text()).includes("Second Admin"), "ticking the box puts them on the About page");
