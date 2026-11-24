@@ -38,8 +38,28 @@ test("the gallery never shows more than 20 photos", () => {
   assert.equal((renderPage(mergeState({ photos }), "/gallery", "2026-11-24").html.match(/class="ph /g) || []).length, 20);
 });
 test("a car that ran in two classes shows both, and each result line names its class", () => {
-  const S = mergeState({}); const ev = S.seasons["2026"]; ev[0].cars["42"].cls = "A"; ev[1].cars["42"].cls = "B";
+  const S = mergeState({ cars: { 42: {} } }); const ev = S.seasons["2026"]; ev[0].cars["42"].cls = "A"; ev[1].cars["42"].cls = "B";
   const c = renderPage(S, "/cars", "2026-11-24").html; const card = c.slice(c.indexOf('id="car-42"'), c.indexOf("</article>", c.indexOf('id="car-42"')));
   assert.ok(card.includes("Classes A, B")); assert.ok(card.includes("· Class A</span>") && card.includes("· Class B</span>"));
   assert.ok(c.includes('href="https://local.apexoutreach.app"'));
+});
+test("cars are named things: one car, several numbers; a shared number waits for an admin's pick", () => {
+  const { resolver, normalizeCars } = require("./cars");
+  const cars = { lemon: { name: "Lemon Drop", numbers: ["42", "48", "92"] }, bug: { name: "The Bug", numbers: ["222", "92"] } };
+  const S = mergeState({ cars }); const { who, why } = resolver(normalizeCars(cars));
+  const cmp = S.seasons["2026"].find((ev) => ev.cars["92"]); const hou = S.seasons["2026"].find((ev) => ev.cars["42"]);
+  assert.equal(who(hou, "42"), "lemon"); assert.equal(why(cmp, "92"), "ambiguous"); assert.equal(who(cmp, "92"), null); assert.equal(why(hou, "17"), "unclaimed");
+  let c = renderPage(S, "/cars", "2026-11-24").html; const card = () => c.slice(c.indexOf('id="car-lemon"'), c.indexOf("</article>", c.indexOf('id="car-lemon"')));
+  const startsBefore = Number(/Starts 2026<\/dt><dd>(\d+)/.exec(card())[1]);
+  assert.ok(!c.includes('id="car-17"') && !c.includes('id="car-404"'), "numbers nobody claimed get no card");
+  for (const ev of S.seasons["2026"]) if (ev.cars["92"]) ev.assign = { 92: "lemon" };
+  c = renderPage(S, "/cars", "2026-11-24").html;
+  assert.equal(Number(/Starts 2026<\/dt><dd>(\d+)/.exec(card())[1]), startsBefore + 2, "the two #92 races now count for Lemon Drop");
+  assert.ok(card().includes("Also raced as") && card().includes("#92"));
+  const r = renderPage(S, "/results", "2026-11-24").html; assert.ok(r.includes("#42<small>Lemon Drop</small>")); assert.ok(r.includes(">#17 <i>P48</i>"), "unclaimed numbers still show in results");
+  cmp.assign = { 92: "" }; assert.equal(resolver(S.cars).who(cmp, "92"), null); assert.equal(resolver(S.cars).why(cmp, "92"), "none");
+});
+test("with no cars set up, the cars page says so and nothing breaks", () => {
+  const S = mergeState({}); assert.ok(renderPage(S, "/cars", "2026-11-24").html.includes("being catalogued"));
+  for (const p of ["/", "/results", "/about"]) assert.equal(renderPage(S, p, "2026-11-24").status, 200);
 });

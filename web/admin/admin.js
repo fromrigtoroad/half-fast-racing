@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator, doc, setDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import carsLib from "../../functions/cars.js";
 import { getStorage, connectStorageEmulator, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 const app$ = document.getElementById("app");
@@ -74,11 +75,11 @@ async function shell(F, me) {
   app$.replaceChildren(el("p", { class: "boot" }, "Loading…"));
   let S; try { S = await api(F, "/state"); } catch (e) { return app$.replaceChildren(el("p", { class: "boot" }, e.message)); }
   const years = Object.keys(S.seasons).sort().reverse(); const cur = S.seasons[years[0]] || [];
-  const fleetNums = [...new Set([...cur.flatMap((ev) => Object.keys(ev.cars)), ...Object.keys(S.cars)])].sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
-  const ctx = { F, me, S, years, fleetNums, reload: () => shell(F, me) };
+  const carList = () => Object.values(S.cars).sort((x, y) => x.name.localeCompare(y.name, "en", { numeric: true }));
+  const ctx = { F, me, S, years, carList, reload: () => shell(F, me) };
   S.sync ??= null;
   const tabs = me.role === "owner" ? [["Overview", overview], ["Race schedule", schedule], ["Home & About", pages], ["Race reports", reports], ["Cars", cars], ["Gallery", gallery], ["People", people], ["My card", myCard]]
-    : me.role === "carowner" ? [["My car", cars], ["Gallery", gallery], ["My card", myCard]] : [["Photos", gallery], ["My card", myCard]];
+    : me.role === "carowner" ? [["Gallery", gallery], ["My card", myCard]] : [["Photos", gallery], ["My card", myCard]];
   const main = el("div", { class: "amain" }); const nav = el("nav", {});
   const show = async (i) => { [...nav.children].forEach((b, j) => b.classList.toggle("on", i === j)); main.replaceChildren(el("div", { class: "ahead" }, el("div", {}, el("h1", {}, tabs[i][0])), el("div", { class: "who" }, el("span", { class: "av" }, (me.email || "?")[0].toUpperCase()), el("div", {}, el("b", {}, me.email), el("small", {}, { owner: me.uid === S.mainAdmin ? "Main admin" : "Admin", carowner: `Car owner${me.car ? " · #" + me.car : ""}`, member: "Teammate" }[me.role])))), ...(await tabs[i][1](ctx))); sessionStorage.setItem("tab", i); };
   tabs.forEach(([name], i) => nav.append(el("button", { type: "button", onclick: () => show(i) }, name)));
@@ -103,17 +104,18 @@ function overview({ F, S, years, reload }) {
     panel("How this works", el("p", { class: "hint" }, "Pick a section on the left, change what you need and press Save. The public site shows the change within about two minutes. “View the site” opens a fresh copy straight away."))];
 }
 
-function schedule({ F, S, fleetNums }) {
+function schedule({ F, S, carList }) {
+  const list = carList().filter((c) => c.active !== false);
   const today = new Date().toLocaleDateString("en-CA"); const races = S.schedule.filter((r) => r.end >= today).map((r) => ({ ...r, cars: [...(r.cars || [])] })); const m = msg();
   const rows = races.map((r) => {
-    const carBox = el("td", { class: "carsel" }, fleetNums.map((n) => el("label", {}, el("input", { type: "checkbox", checked: r.cars.includes(n), onchange: (ev) => { r.cars = ev.target.checked ? [...r.cars, n] : r.cars.filter((c) => c !== n); } }), "#" + n)));
+    const carBox = el("td", { class: "carsel" }, list.length ? list.map((c) => el("label", {}, el("input", { type: "checkbox", checked: r.cars.includes(c.id), onchange: (ev) => { r.cars = ev.target.checked ? [...r.cars, c.id] : r.cars.filter((x) => x !== c.id); } }), c.name)) : el("small", {}, "Add cars in the Cars section first"));
     const tr = el("tr", { class: r.racing ? "in" : "" }, el("td", {}, el("button", { type: "button", class: "tog", "aria-pressed": String(!!r.racing), "aria-label": `Racing ${r.name}`, onclick: (ev) => { r.racing = !r.racing; ev.currentTarget.setAttribute("aria-pressed", String(r.racing)); tr.classList.toggle("in", r.racing); } }, el("i"))),
       el("td", { class: "d" }, `${r.start.slice(5)} → ${r.end.slice(5)}`, el("small", {}, r.start.slice(0, 4))), el("td", {}, el("strong", {}, r.name), el("small", {}, r.loc)), el("td", { class: "d" }, r.deadline), carBox);
     return tr;
   });
   return [panel("Upcoming races", el("p", { class: "hint" }, "Switch on the races the team is entering and tick the cars. The home page countdown follows the first race that is switched on."),
     el("div", { class: "tbl plain" }, el("table", {}, el("thead", {}, el("tr", {}, ["Racing?", "Dates", "Race", "Entry deadline", "Cars"].map((h) => el("th", {}, h)))), el("tbody", {}, rows))),
-    el("div", { class: "rowacts" }, action("Save schedule", m, async () => { const past = S.schedule.filter((r) => r.end < today); await setDoc(doc(F.db, "site", "schedule"), { races: [...past, ...races] }); S.schedule = [...past, ...races]; }), m.node))];
+    el("div", { class: "rowacts" }, action("Save schedule", m, async () => { const past = S.schedule.filter((r) => r.end < today); for (const r of races) r.cars = r.cars.filter((id) => S.cars[id]); await setDoc(doc(F.db, "site", "schedule"), { races: [...past, ...races] }); S.schedule = [...past, ...races]; }), m.node))];
 }
 
 function pages({ F, S }) {
@@ -156,31 +158,52 @@ function photoField(F, me, label, current) {
   return { node: el("label", { class: "f" }, label, pic, input, m.node), get: () => url };
 }
 
-function cars({ F, me, S, fleetNums, years }) {
-  const nums = me.role === "owner" ? fleetNums : [me.car].filter(Boolean);
-  if (!nums.length && me.role !== "owner") return [panel("My car", el("p", { class: "empty" }, "No car is linked to your login yet. Ask a site admin."))];
-  // When each number last raced, from the results on record.
-  const last = {}; for (const y of years) for (const ev of S.seasons[y]) for (const n of Object.keys(ev.cars)) if (!last[n] || ev.date > last[n].date) last[n] = ev;
-  const holder = el("div", { class: "stack" }); const picker = el("div", { class: "carpick" });
-  const open = (n) => {
-    [...picker.children].forEach((b) => b.classList.toggle("on", b.dataset.n === n)); sessionStorage.setItem("car", n);
-    const c = S.cars[n] || {}; const m = msg(); const lr = last[n];
-    const f = { name: field("Car name", c.name, { placeholder: "e.g. Lemon Drop", hint: "what the team calls it" }), year: field("Year", c.year), make: field("Make", c.make), model: field("Model", c.model), story: field("Its story", c.story, { multiline: true, wide: true, hint: "where it came from, what broke, what it cost" }) }; const ph = photoField(F, me, "Photo", c.photo);
-    const active = el("input", { type: "checkbox", checked: c.active !== false });
-    holder.replaceChildren(panel(`Car #${n}`, el("div", { class: "formgrid" }, f.name.node, el("label", { class: "f" }, "Status", el("span", { class: "rowacts" }, active, " Active (the team still has it)"), el("small", {}, lr ? `Last raced ${lr.date} · ${lr.race}, ${lr.track}` : "No race on record yet")), f.year.node, f.make.node, f.model.node, ph.node, f.story.node),
-      el("div", { class: "rowacts" }, action("Save", m, async () => { const data = { name: f.name.get(), year: f.year.get(), make: f.make.get(), model: f.model.get(), story: f.story.get(), photo: ph.get(), active: active.checked }; await setDoc(doc(F.db, "cars", n), data, { merge: true }); S.cars[n] = data; draw(null, n); }), m.node)));
+function cars({ F, me, S, years, carList }) {
+  const R = () => carsLib.resolver(S.cars);
+  const lastRace = (id) => { const { who } = R(); let best = null; for (const y of years) for (const ev of S.seasons[y]) for (const n of Object.keys(ev.cars)) if (who(ev, n) === id && (!best || ev.date > best.ev.date)) best = { ev, n }; return best; };
+  const parseNumbers = (s) => [...new Set(s.split(/[\s,]+/).map((x) => x.replace(/^#/, "").trim()).filter(Boolean))];
+  const holder = el("div", { class: "stack" }); const picker = el("div", { class: "carpick" }); const matchHolder = el("div", {});
+  const form = (c) => ({ name: field("Car name", c.name && !/^#/.test(c.name) ? c.name : "", { placeholder: "e.g. Lemon Drop", hint: "what the team calls it" }), numbers: field("Numbers it has raced as", (c.numbers || []).join(", "), { placeholder: "42, 48, 92", hint: "separate with commas" }),
+    year: field("Year", c.year), make: field("Make", c.make), model: field("Model", c.model), story: field("Its story", c.story, { multiline: true, wide: true, hint: "where it came from, what broke, what it cost" }) });
+  const read = (f, ph, active) => { const numbers = parseNumbers(f.numbers.get()); const bad = numbers.find((n) => !/^[A-Za-z0-9]{1,6}$/.test(n)); if (bad) throw new Error(`“${bad}” isn't a car number.`); if (!f.name.get()) throw new Error("Give the car a name."); return { name: f.name.get(), numbers, year: f.year.get(), make: f.make.get(), model: f.model.get(), story: f.story.get(), photo: ph.get(), active }; };
+  const open = (id) => {
+    [...picker.children].forEach((b) => b.classList.toggle("on", b.dataset.n === id)); sessionStorage.setItem("car", id);
+    const c = S.cars[id]; const m = msg(); const lr = lastRace(id); const f = form(c); const ph = photoField(F, me, "Photo", c.photo); const active = el("input", { type: "checkbox", checked: c.active !== false });
+    holder.replaceChildren(panel(c.name, el("div", { class: "formgrid" }, f.name.node, f.numbers.node, el("label", { class: "f" }, "Status", el("span", { class: "rowacts" }, active, " Active (the team still has it)"), el("small", {}, lr ? `Last raced ${lr.ev.date} as #${lr.n} · ${lr.ev.race}, ${lr.ev.track}` : "No race matched to this car yet")), f.year.node, f.make.node, f.model.node, ph.node, f.story.node),
+      el("div", { class: "rowacts" }, action("Save", m, async () => { const data = read(f, ph, active.checked); await setDoc(doc(F.db, "cars", id), data, { merge: true }); S.cars[id] = carsLib.normalizeCars({ [id]: data })[id]; draw(null, id); drawMatch(); }),
+        action("Delete this car", m, async () => { if (!window.confirm(`Delete ${c.name}? Its results stay on the Results page.`)) return "Not deleted."; await deleteDoc(doc(F.db, "cars", id)); delete S.cars[id]; draw(carList()[0] ? carList()[0].id : null); if (!carList().length) openNew(); drawMatch(); return "Deleted."; }, "danger"), m.node)));
   };
   const openNew = () => {
-    [...picker.children].forEach((b) => b.classList.toggle("on", b.dataset.n === "+")); const num = field("Car number", "", { placeholder: "e.g. 47" }); const m = msg();
-    holder.replaceChildren(panel("New car", el("p", { class: "hint" }, "Add a car before its first race. Cars that have raced appear here by themselves."), num.node, el("div", { class: "rowacts" }, action("Create", m, async () => { const n = num.get().replace(/^#/, ""); if (!/^[A-Za-z0-9]{1,6}$/.test(n)) throw new Error("Type the car number, for example 47."); if (nums.includes(n)) throw new Error(`Car #${n} is already in the list.`); await setDoc(doc(F.db, "cars", n), { active: true }, { merge: true }); S.cars[n] = { active: true }; nums.push(n); nums.sort((a, b) => a.localeCompare(b, "en", { numeric: true })); draw(n); return `Car #${n} created.`; }), m.node)));
+    [...picker.children].forEach((b) => b.classList.toggle("on", b.dataset.n === "+")); const m = msg(); const f = form({}); const ph = photoField(F, me, "Photo", "");
+    holder.replaceChildren(panel("New car", el("p", { class: "hint" }, "A car is known by its name. List every number it has raced as; results with those numbers are matched to it."), el("div", { class: "formgrid" }, f.name.node, f.numbers.node, f.year.node, f.make.node, f.model.node, ph.node, f.story.node),
+      el("div", { class: "rowacts" }, action("Create", m, async () => { const data = read(f, ph, true); const ref2 = await addDoc(collection(F.db, "cars"), data); S.cars[ref2.id] = carsLib.normalizeCars({ [ref2.id]: data })[ref2.id]; draw(ref2.id); drawMatch(); return `${data.name} created.`; }), m.node)));
   };
   // draw(sel) rebuilds the buttons and opens a car; draw(null, mark) only refreshes the buttons (after a save), keeping the form and its "Saved" message.
   const draw = (sel, mark) => {
-    picker.replaceChildren(...nums.map((n) => el("button", { type: "button", "data-n": n, class: S.cars[n] && S.cars[n].active === false ? "off" : "", onclick: () => open(n) }, "#" + n, S.cars[n] && S.cars[n].name ? el("small", {}, S.cars[n].name) : null)), me.role === "owner" ? el("button", { type: "button", "data-n": "+", class: "new", onclick: openNew }, "＋ New car") : null);
+    picker.replaceChildren(...carList().map((c) => el("button", { type: "button", "data-n": c.id, class: c.active === false ? "off" : "", onclick: () => open(c.id) }, c.name, c.numbers.length ? el("small", {}, c.numbers.map((n) => "#" + n).join(" ")) : null)), el("button", { type: "button", "data-n": "+", class: "new", onclick: openNew }, "＋ New car"));
     if (sel) open(sel); else if (mark) [...picker.children].forEach((b) => b.classList.toggle("on", b.dataset.n === mark));
   };
-  const first = nums.includes(sessionStorage.getItem("car")) ? sessionStorage.getItem("car") : nums[0]; draw(first); if (!first) openNew();
-  return [el("section", { class: "apanel" }, el("p", { class: "hint", style: "margin-bottom:12px" }, "Pick a car. Greyed-out numbers are marked inactive."), picker), holder];
+  // Which car ran which number, race by race.
+  const yearSel = el("select", {}, years.map((y) => el("option", { value: y }, y))); const onlyOpen = el("input", { type: "checkbox", checked: true }); const mm = msg();
+  const drawMatch = () => {
+    const { why } = R(); const y = yearSel.value; const rows = [];
+    for (const ev of S.seasons[y]) for (const [n, c] of Object.entries(ev.cars)) {
+      const w = why(ev, n); if (onlyOpen.checked && w !== "ambiguous") continue;
+      const auto = w === "auto" || (ev.assign && n in ev.assign && R().candidates(n).length === 1) ? S.cars[R().candidates(n)[0]] : null;
+      const cur = ev.assign && n in ev.assign ? (ev.assign[n] === "" ? "none" : S.cars[ev.assign[n]] ? ev.assign[n] : "auto") : "auto";
+      const sel = el("select", { "aria-label": `Car for #${n} at ${ev.race}`, onchange: () => { ev.assign = { ...(ev.assign || {}) }; if (sel.value === "auto") delete ev.assign[n]; else ev.assign[n] = sel.value === "none" ? "" : sel.value; } },
+        el("option", { value: "auto", selected: cur === "auto" }, R().candidates(n).length === 1 ? `Automatic: ${S.cars[R().candidates(n)[0]].name}` : R().candidates(n).length ? "Pick a car…" : "No car uses this number"),
+        carList().map((car) => el("option", { value: car.id, selected: cur === car.id }, car.name)), el("option", { value: "none", selected: cur === "none" }, "None of our named cars"));
+      rows.push(el("tr", {}, el("td", { class: "d" }, ev.date), el("td", {}, el("strong", {}, ev.race), el("small", {}, ev.track)), el("td", {}, `#${n}`), el("td", {}, `P${c.pos}${c.cls ? " · " + c.cls : ""}`), el("td", {}, sel, w === "ambiguous" ? el("small", { class: "need" }, "Needs a pick") : null)));
+    }
+    matchHolder.replaceChildren(rows.length ? el("div", { class: "tbl plain" }, el("table", {}, el("thead", {}, el("tr", {}, ["Date", "Race", "Number", "Result", "Car"].map((h) => el("th", {}, h)))), el("tbody", {}, rows))) : el("p", { class: "empty" }, onlyOpen.checked ? `Nothing to sort out in ${y}.` : `No results in ${y}.`));
+  };
+  yearSel.onchange = drawMatch; onlyOpen.onchange = drawMatch;
+  const start = S.cars[sessionStorage.getItem("car")] ? sessionStorage.getItem("car") : (carList()[0] || {}).id; draw(start); if (!start) openNew(); drawMatch();
+  return [el("section", { class: "apanel" }, el("p", { class: "hint", style: "margin-bottom:12px" }, "Pick a car. Greyed-out ones are marked inactive."), picker), holder,
+    panel("Which car ran which number", el("p", { class: "hint" }, "Results are matched to a car by its number. When two cars have used the same number, pick the right one for each race here. You can also correct any automatic match."),
+      el("div", { class: "formgrid" }, el("label", { class: "f" }, "Season", yearSel), el("label", { class: "f" }, "Show", el("span", { class: "rowacts" }, onlyOpen, " Only the ones that need a pick"))), matchHolder,
+      el("div", { class: "rowacts" }, action("Save matches", mm, async () => { await setDoc(doc(F.db, "seasons", yearSel.value), { events: S.seasons[yearSel.value] }); drawMatch(); }), mm.node))];
 }
 
 async function gallery({ F, me, S, years }) {

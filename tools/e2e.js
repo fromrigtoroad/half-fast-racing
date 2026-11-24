@@ -32,20 +32,27 @@ const BASE = "http://127.0.0.1:5000"; const PW = "emulator-only-" + Math.random(
   assert.ok((await (await fetch(BASE + "/about?fresh")).text()).includes("Bowling Green, KY"), "about shows the home base");
   console.log("ok  owner edits Home & About, site shows it");
 
-  await tab(p, "Race schedule"); const row = p.locator("tr:has-text('Shine Country Classic')").first(); const setTog = async (l, want) => { if ((await l.getAttribute("aria-pressed")) !== String(want)) await l.click(); };
-  await setTog(row.locator(".tog"), true); await row.locator("label:has-text('#42') input").check();
-  await setTog(p.locator("tr:has-text('Scrotium') .tog").first(), false); await p.click("button:has-text('Save schedule')"); await saved(p);
-  const h2 = await (await fetch(BASE + "/?fresh")).text(); assert.ok(/Next green flag<\/p><h2>Shine Country Classic/.test(h2), "countdown follows the schedule"); assert.ok(h2.includes("· #42"), "shows the car picked");
-  console.log("ok  schedule drives the next race");
+  await tab(p, "Cars"); const pnl = (title) => p.locator(`.apanel:has(h2:text-is("${title}"))`); const fld = (scope, label) => scope.locator(`label.f:has-text("${label}") input`);
+  const newCar = async (name, numbers) => { await p.click(".carpick button.new"); await fld(pnl("New car"), "Car name").fill(name); await fld(pnl("New car"), "Numbers").fill(numbers); await pnl("New car").locator("button:has-text('Create')").click(); await p.waitForSelector(`.apanel h2:text-is("${name}")`); };
+  if (!(await p.locator(".carpick button:has-text('Lemon Drop')").count())) { await newCar("Lemon Drop", "42, 48, #92"); await newCar("The Bug", "222, 92"); }
+  await p.click(".carpick button:has-text('Lemon Drop')"); await fld(pnl("Lemon Drop"), "Make").fill("Mazda"); await fld(pnl("Lemon Drop"), "Model").fill("Miata"); await pnl("Lemon Drop").locator("button:text-is('Save')").click(); await saved(p);
+  assert.ok((await pnl("Lemon Drop").locator("label.f:has-text('Status')").innerText()).includes("Last raced 2026-11-07 as #42"), "shows when the car last raced and under which number");
+  let carsHtml = await (await fetch(BASE + "/cars?fresh")).text(); assert.ok(carsHtml.includes("Lemon Drop") && carsHtml.includes("Mazda Miata")); assert.ok(!carsHtml.includes("Also raced as #92"), "#92 is shared, so it isn't counted for either car yet");
+  const match = pnl("Which car ran which number"); assert.equal(await match.locator("tbody tr").count(), 2, "the two #92 races need a pick");
+  for (const sel of await match.locator("tbody select").all()) await sel.selectOption({ label: "Lemon Drop" });
+  await match.locator("button:has-text('Save matches')").click(); await saved(p, '.apanel:has(h2:text-is("Which car ran which number"))'); assert.equal(await match.locator("tbody tr").count(), 0);
+  carsHtml = await (await fetch(BASE + "/cars?fresh")).text(); assert.ok(/Also raced as[^<]*#92/.test(carsHtml), "after the pick, #92 counts for Lemon Drop");
+  assert.ok((await (await fetch(BASE + "/results?fresh")).text()).includes("#42<small>Lemon Drop</small>"), "results name the car");
+  await p.click(".carpick button:has-text('The Bug')"); await pnl("The Bug").locator("label.f:has-text('Status') input").uncheck(); await pnl("The Bug").locator("button:text-is('Save')").click(); await saved(p, '.apanel:has(h2:text-is("The Bug"))');
+  carsHtml = await (await fetch(BASE + "/cars?fresh")).text(); assert.ok(/id="retired"[\s\S]*The Bug/.test(carsHtml), "an inactive car moves to Retired"); assert.ok(!carsHtml.includes(">#404<") && !/id="car-17"/.test(carsHtml), "one-off numbers get no card");
+  await pnl("The Bug").locator("label.f:has-text('Car name') input").fill(""); await pnl("The Bug").locator("button:text-is('Save')").click(); await p.waitForSelector('.msg.err:has-text("Give the car a name")');
+  await p.screenshot({ path: (process.env.SHOT || "/dev/null").replace("overview", "cars"), fullPage: true }).catch(() => {}); console.log("ok  cars by name: several numbers, shared number needs a pick, retire, name required");
 
-  await tab(p, "Cars"); const carPanel = (n) => p.locator(`.apanel:has(h2:text-is('Car #${n}'))`);
-  await p.click(".carpick button[data-n='42']"); await carPanel(42).locator("label.f:has-text('Car name') input").fill("Lemon Drop"); await carPanel(42).locator("label.f:has-text('Make') input").fill("Mazda"); await carPanel(42).locator("label.f:has-text('Model') input").fill("Miata"); await carPanel(42).locator("button.abtn").click(); await saved(p);
-  assert.ok((await carPanel(42).locator("label.f:has-text('Status')").innerText()).includes("Last raced 2026-11-07"), "shows when the car last raced");
-  await p.click(".carpick button[data-n='221']"); await carPanel(221).locator("label.f:has-text('Status') input").uncheck(); await carPanel(221).locator("button.abtn").click(); await saved(p);
-  await p.click(".carpick button.new"); await p.locator("label.f:has-text('Car number') input").fill("777"); await p.click("button:has-text('Create')"); await p.waitForSelector(".apanel:has(h2:text-is('Car #777'))");
-  const carsHtml = await (await fetch(BASE + "/cars?fresh")).text(); assert.ok(carsHtml.includes("Lemon Drop") && carsHtml.includes("Mazda Miata"), "cars page shows the name and make");
-  assert.ok(/id="retired"[\s\S]*id="car-221"/.test(carsHtml), "an inactive car moves to Retired"); assert.ok(carsHtml.includes('id="car-777"') && carsHtml.includes("Hasn't raced yet"), "a new car appears before its first race");
-  console.log("ok  cars: name, inactive → retired, new car");
+  await tab(p, "Race schedule"); const row = p.locator("tr:has-text('Shine Country Classic')").first(); const setTog = async (l, want) => { if ((await l.getAttribute("aria-pressed")) !== String(want)) await l.click(); };
+  await setTog(row.locator(".tog"), true); await row.locator("label:has-text('Lemon Drop') input").check();
+  await setTog(p.locator("tr:has-text('Scrotium') .tog").first(), false); await p.click("button:has-text('Save schedule')"); await saved(p);
+  const h2 = await (await fetch(BASE + "/?fresh")).text(); assert.ok(/Next green flag<\/p><h2>Shine Country Classic/.test(h2), "countdown follows the schedule"); assert.ok(h2.includes("· Lemon Drop"), "shows the car picked by name");
+  console.log("ok  schedule drives the next race");
 
   await tab(p, "Race reports"); await p.locator("label.f:has-text('Race report') textarea").fill("We finished.\n\nNothing caught fire."); await p.click("button:has-text('Save report')"); await saved(p);
   const res = await (await fetch(BASE + "/results?fresh")).text(); assert.ok(res.includes("Nothing caught fire."), "report shows"); assert.ok(res.includes("Every lap counted"), "results still render");
@@ -88,7 +95,7 @@ const BASE = "http://127.0.0.1:5000"; const PW = "emulator-only-" + Math.random(
 
   // older roles still hold in the rules (nobody is given them any more)
   const carEmail = `carowner${stamp}@example.test`; const cu = { uid: await mk(carEmail, "Car Owner", "carowner", "220") };
-  const p2 = await page(); await login(p2, carEmail); assert.deepEqual(await p2.locator(".aside nav button").allTextContents(), ["My car", "Gallery", "My card"]);
+  const p2 = await page(); await login(p2, carEmail); assert.deepEqual(await p2.locator(".aside nav button").allTextContents(), ["Gallery", "My card"]);
   const p3 = await page({ width: 390, height: 844 }); await login(p3, memberEmail); assert.deepEqual(await p3.locator(".aside nav button").allTextContents(), ["Photos", "My card"]);
   assert.equal(await p3.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "no sideways scroll on a phone");
   const p4 = await page({ width: 390, height: 844 }); await login(p4, ownerEmail); await tab(p4, "Cars"); assert.equal(await p4.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "admin cars page fits a phone");

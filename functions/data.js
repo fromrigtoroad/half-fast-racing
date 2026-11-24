@@ -1,5 +1,6 @@
 // Reads the site's state from Firestore and fills any gap from seed.json, so a page never renders blank.
 const seed = require("./seed.json");
+const { normalizeCars } = require("./cars");
 let cache = null; let cacheAt = 0;
 const TTL_MS = 30_000;
 const PHOTO_LIMIT = 20; // keeps storage small; the admin enforces the same number on upload
@@ -15,7 +16,7 @@ function mergeState(docs) {
   if (docs.schedule && Array.isArray(docs.schedule.races) && docs.schedule.races.length) S.schedule = docs.schedule.races;
   if (docs.gallery && Array.isArray(docs.gallery.instagramPosts)) S.instagramPosts = docs.gallery.instagramPosts;
   for (const [year, d] of Object.entries(docs.seasons || {})) if (Array.isArray(d.events) && d.events.length) S.seasons[year] = d.events;
-  S.cars = docs.cars || {};
+  S.cars = normalizeCars(docs.cars);
   S.sync = docs.sync || null;
   S.owners = (docs.people || []).filter((p) => p.showOnAbout)
     // People with a title but no car (the team owner, a crew chief) first, then car owners by number.

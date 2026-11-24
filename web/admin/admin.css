@@ -22,3 +22,4 @@ button.abtn{font-family:var(--body);cursor:pointer}button.abtn:disabled{opacity:
 .carpick button small{font:600 .62rem/1 var(--body);letter-spacing:.06em;font-style:normal;color:var(--mute);text-transform:none}.carpick button:hover{border-color:var(--lemon)}.carpick button.on{background:var(--lemon);color:var(--ink);border-color:var(--lemon)}.carpick button.on small{color:var(--ink)}
 .carpick button.off:not(.on){opacity:.45}.carpick button.new{font:600 .86rem/1 var(--body);border-style:dashed;justify-content:center;color:var(--lemon)}.carpick button:focus-visible{outline:2px solid var(--lemon);outline-offset:2px}
 label.f>small{font-weight:400;color:var(--mute)}
+.need{display:block;color:var(--lemon);font-size:.76rem;margin-top:4px}.tbl.plain select{padding:8px 10px;font-size:14px;min-width:190px}.carpick button{font-size:1.15rem}

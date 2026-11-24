@@ -33,10 +33,10 @@ test("timing feed → the team's cars, best run per car", () => {
   assert.equal(S.buildEvent(event, [{ session: sessions[0], rows: [{ name: "Someone Else", position: 1 }] }]), null);
 });
 test("a fresh result keeps the written report, and hand-fixed results are left alone", () => {
-  const old = { id: "a", eventId: 1, date: "2026-11-07", race: "Texas Tippin'", track: "MSR", of: 100, cars: { 42: { pos: 5, cls: "A", pic: 3, laps: 300, best: "1:56.0" } }, report: "We finished.", note: "P5" };
+  const old = { id: "a", eventId: 1, date: "2026-11-07", race: "Texas Tippin'", track: "MSR", of: 100, cars: { 42: { pos: 5, cls: "A", pic: 3, laps: 300, best: "1:56.0" } }, report: "We finished.", note: "P5", assign: { 42: "lemon" } };
   const fresh = { id: "b", eventId: 1, date: "2026-11-07", race: "Texas Tippin'", track: "MSR Houston", of: 121, cars: { 42: { pos: 3, cls: "A", pic: 2, laps: 358, best: "1:55.549" } } };
   const m = S.mergeEvent([old], fresh); assert.equal(m.changed, true); assert.equal(m.events.length, 1);
-  assert.deepEqual([m.events[0].id, m.events[0].report, m.events[0].note, m.events[0].cars[42].pos], ["a", "We finished.", "P5", 3]);
+  assert.deepEqual([m.events[0].id, m.events[0].report, m.events[0].note, m.events[0].cars[42].pos], ["a", "We finished.", "P5", 3]); assert.deepEqual(m.events[0].assign, { 42: "lemon" }, "which car ran the number is kept");
   assert.equal(S.mergeEvent(m.events, fresh).changed, false, "running again changes nothing");
   assert.equal(S.mergeEvent([{ ...old, manual: true }], fresh).events[0].cars[42].pos, 5);
   const added = S.mergeEvent([old], { ...fresh, eventId: 2, date: "2026-12-13", race: "Scrotium" }); assert.deepEqual(added.events.map((e) => e.date), ["2026-12-13", "2026-11-07"]);
