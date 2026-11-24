@@ -1,7 +1,9 @@
 import json,html,os,collections,datetime,re,sys
 e=html.escape
-hits=json.load(open('hfr_hits.json'))
-if os.path.exists('hfr_hits_old.json'): hits+=json.load(open('hfr_hits_old.json'))
+HERE=os.path.dirname(os.path.abspath(__file__))
+PREVIEW=len(sys.argv)>2 and sys.argv[1]=='--preview'   # python3 site/build.py --preview out.html  (single file, hash views, admin mock-up)
+OUT=os.path.join(HERE,'..','public')
+hits=json.load(open(os.path.join(HERE,'data','results.json')))
 hits=[x for x in hits if x['date']>='2018-06-01']  # 2012-2016 'Half Fast Racing' (NJ, cars 92-96) unconfirmed as the same team
 evs={}
 for x in hits:
@@ -22,9 +24,9 @@ def agg(evl):
     return {'races':len(evl),'laps':sum(c['laps'] for c in cars),'best':min(c['pos'] for c in cars),'top5':sum(1 for b in best if b['pos']<=5),'top10':sum(1 for b in best if b['pos']<=10),'clspod':sum(1 for c in cars if c['pic'] and c['pic']<=3),'starts':len(cars)}
 ALL=agg([ev for y in years.values() for ev in y]); A26=agg(years[CUR])
 
-MULTI=False
+MULTI=not PREVIEW
 def L(p): 
-    if MULTI: return ('index' if p=='home' else p)+'.html'
+    if MULTI: return '/' if p=='home' else '/'+p
     return '#'+p if p!='home' else '#home'
 def stat(n,l,hl=False): return f"<div class='st{' hl' if hl else ''}'><b>{n}</b><span>{l}</span></div>"
 def table(evl,limit=None):
@@ -116,7 +118,7 @@ P['about']=f"""<section class="pagehead"><div class="wrap"><p class="kicker">Abo
 <section class="wrap"><div class="sechead"><div><p class="kicker">Who runs it</p><h2>Owners</h2></div></div>
 <div class="people">{''.join(f"<article class='person'><div class='slot sq'>Photo</div><p class='role'>{r}</p><h3>{e(h)}</h3><p class='tbd'>{e(d)}. Name and bio from the owner.</p></article>" for h,d,r in own)}</div>
 <p class="src">Only the team owner and car owners are listed. Drivers change from race to race.</p></section>"""
-SCH=[s for s in json.load(open('schedule.json')) if s['name']!='Race Info'][:8]
+SCH=[s for s in json.load(open(os.path.join(HERE,'data','schedule.json'))) if s['name']!='Race Info'][:8]
 def schrow(i,s):
     on=('Scrotium' in s['name']); closed=(i==0)
     nm=re.sub(r'\s*20\d\d','',s['name']); d=s['date'].replace(' - ','–').replace(', 2026','').replace(', 2027',' ’27')
@@ -151,7 +153,7 @@ P['admin']=f"""<div class="adm"><aside class="aside"><div class="abrand"><b>Half
 <tr><td><strong>Owner of #221</strong></td><td>Car owner</td><td>Their car, photos, reports</td><td><span class="pill y">Link sent</span></td><td class="d">Never</td></tr>
 <tr><td><strong>A driver</strong></td><td>Teammate</td><td>Upload photos</td><td><span class="pill">Not needed</span></td><td class="d">Nov 8</td></tr>
 </tbody></table></div></section></div></div>"""
-P['gallery']=f"""<section class="pagehead"><div class="wrap"><p class="kicker">Gallery</p><h1>From the paddock</h1><p class="lede">Photos uploaded by the crew, sorted by race.</p></div></section>
+P['gallery']=f"""<section class="pagehead"><div class="wrap"><p class="kicker">Gallery</p><h1>From the paddock</h1><p class="lede">Photos uploaded by the crew, sorted by race.</p><p style="margin-top:22px"><a class="btn alt" href="https://www.instagram.com/halffastracing_" target="_blank" rel="noopener">Follow @halffastracing_ on Instagram ↗</a></p></div></section>
 <section class="wrap">{''.join(f"<div class='gal'><h3>{e(ev['race'])} <span>{e(ev['track'])} · {day(ev['date'])}</span></h3><div class='galgrid'>{'<div class=slot>Photo</div>'*4}</div></div>" for ev in years[CUR][:3])}</section>"""
 NAV=[('home','Home'),('results','Results'),('cars','Cars'),('about','About'),('gallery','Gallery')]
 def header(active):
@@ -161,13 +163,30 @@ def header(active):
 FOOT=f"""<footer><div class="wrap fgrid"><div><a class="brand" href="{L('home')}"><b>Half Fast</b><span>Racing</span></a><p>A 24 Hours of Lemons endurance team. Built in a garage, raced on real tracks.</p></div>
 <div><h4>Site</h4>{''.join(f"<a href='{L(k)}'>{v}</a>" for k,v in NAV[1:])}</div><div><h4>Data</h4><a href="https://24hoursoflemons.com/standings" target="_blank" rel="noopener">Lemons standings ↗</a><a href="https://speedhive.mylaps.com/Organizations/145414" target="_blank" rel="noopener">Official timing ↗</a></div></div>
 <div class="wrap legal">© 2026 Half Fast Racing. An independent team site, not run by 24 Hours of Lemons. <a class="prev" href="#admin">Preview only: open the admin mock-up →</a></div></footer>"""
-CSS=open('style2.css').read()
+CSS=open(os.path.join(HERE,'style.css')).read()
 JS="""document.addEventListener('click',function(ev){var b=ev.target.closest('.tog');if(!b)return;var on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',on);b.closest('tr').classList.toggle('in',on)});function tick(){document.querySelectorAll('.clock').forEach(function(c){var s=Math.max(0,new Date(c.dataset.t)-Date.now())/1e3,b=c.querySelectorAll('b');b[0].textContent=Math.floor(s/86400);b[1].textContent=String(Math.floor(s%86400/3600)).padStart(2,'0');b[2].textContent=String(Math.floor(s%3600/60)).padStart(2,'0')})}tick();setInterval(tick,30000);"""
 HEAD="<title>Half Fast Racing</title>\n<meta name=\"description\" content=\"Half Fast Racing: a 24 Hours of Lemons endurance team, racing $500 cars for more than ten years.\">"
 # single-file (artifact, hash views)
-MULTI=False
-views="".join(f"<main data-view='{k}' hidden>{v}</main>" for k,v in P.items())
-ROUTE="""function route(){var h=(location.hash||'#home').slice(1),v=document.querySelector('main[data-view="'+h+'"]');if(!v){h='home';v=document.querySelector('main[data-view=home]')}document.body.classList.toggle('isadm',h==='admin');document.querySelectorAll('main').forEach(function(m){m.hidden=m!==v});document.querySelectorAll('[data-nav]').forEach(function(a){a.classList.toggle('on',a.dataset.nav===h.split('-')[0])});window.scrollTo(0,0)}addEventListener('hashchange',route);route();"""
-os.makedirs('site',exist_ok=True)
-open('site/half-fast-preview.html','w').write(HEAD+'\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>'+CSS+'</style>\n'+header('home')+views+FOOT+'<script>'+JS+ROUTE+'</script>')
-print('years',YL,'ALL',ALL,'pages',list(P))
+TITLES={'home':'Half Fast Racing · 24 Hours of Lemons team','results':'Results · Half Fast Racing','cars':'The cars · Half Fast Racing','about':'About the team · Half Fast Racing','gallery':'Gallery · Half Fast Racing'}
+if PREVIEW:
+    views="".join(f"<main data-view='{k}' hidden>{v}</main>" for k,v in P.items())
+    ROUTE="""function route(){var h=(location.hash||'#home').slice(1),v=document.querySelector('main[data-view="'+h+'"]');if(!v){h='home';v=document.querySelector('main[data-view=home]')}document.body.classList.toggle('isadm',h==='admin');document.querySelectorAll('main').forEach(function(m){m.hidden=m!==v});document.querySelectorAll('[data-nav]').forEach(function(a){a.classList.toggle('on',a.dataset.nav===h.split('-')[0])});window.scrollTo(0,0)}addEventListener('hashchange',route);route();"""
+    open(sys.argv[2],'w').write(HEAD+'\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>'+CSS+'</style>\n'+header('home')+views+FOOT+'<script>'+JS+ROUTE+'</script>')
+else:
+    import shutil
+    shutil.rmtree(OUT,ignore_errors=True); shutil.copytree(os.path.join(HERE,'static'),OUT)
+    open(os.path.join(OUT,'style.css'),'w').write(CSS.replace('url(fonts/','url(/fonts/'))
+    open(os.path.join(OUT,'site.js'),'w').write(JS)
+    foot=re.sub(r' <a class="prev".*?</a>','',FOOT)
+    for k,v in P.items():
+        if k=='admin': continue
+        y=k.split('-')[1] if '-' in k else ''
+        title=(y+' results · Half Fast Racing') if y else TITLES[k]
+        # noindex until the owner approves the site for launch
+        page=f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{e(title)}</title><meta name="description" content="Half Fast Racing: a 24 Hours of Lemons endurance team, racing $500 cars for more than ten years.">
+<meta name="robots" content="noindex"><meta name="theme-color" content="#0d1420"><link rel="icon" href="/logo.webp">
+<link rel="preload" href="/fonts/barlow-condensed-latin-900-italic.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/style.css"></head>
+<body>{header(k)}<main>{v.replace('src="logo.webp"','src="/logo.webp"')}</main>{foot}<script src="/site.js" defer></script></body></html>"""
+        open(os.path.join(OUT,('index' if k=='home' else k)+'.html'),'w').write(page)
+print('years',YL,'pages',[k for k in P if PREVIEW or k!='admin'])

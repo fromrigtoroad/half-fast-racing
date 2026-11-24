@@ -1,0 +1,46 @@
+# Deploy the Half Fast Racing site to Firebase Hosting (project half-fast-racing).
+# Started by hand only: Actions tab → Deploy → Run workflow. Never runs on push.
+# Signs in to Google with workload identity federation: no key is stored in GitHub or the repo.
+# One-time setup: scripts/setup-github-deploy.sh
+name: Deploy
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write # lets the job ask GitHub for a short-lived token that Google exchanges for access
+concurrency:
+  group: deploy-half-fast-racing
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROJECT: half-fast-racing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the site
+        run: python3 site/build.py
+      - name: Sign in to Google (half-fast-racing only)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/1027280441949/locations/global/workloadIdentityPools/github/providers/half-fast-racing
+          service_account: deploy@half-fast-racing.iam.gserviceaccount.com
+      - name: Deploy
+        run: npx --yes firebase-tools@15.34.2 deploy --only hosting --project "$PROJECT" --non-interactive
+      - name: Summary
+        if: always()
+        env:
+          OUTCOME: ${{ job.status }}
+        run: |
+          {
+            echo "### Deploy to half-fast-racing: $OUTCOME"
+            echo "- Commit: $GITHUB_SHA on $GITHUB_REF_NAME"
+            echo "- Site: https://half-fast-racing.web.app"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -17,8 +17,6 @@ PROVIDER="half-fast-racing"
 REGION="us-east1"
 
 command -v gcloud >/dev/null || { echo "gcloud is missing: brew install --cask google-cloud-sdk"; exit 1; }
-command -v gh >/dev/null || { echo "The GitHub CLI is missing: brew install gh, then gh auth login"; exit 1; }
-gh auth status >/dev/null 2>&1 || { echo "Sign in to GitHub first: gh auth login"; exit 1; }
 
 echo "Setting up GitHub deploys for the Google project: $PROJECT"
 PNUM="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
@@ -71,9 +69,8 @@ done
 MEMBER="principalSet://iam.googleapis.com/projects/$PNUM/locations/global/workloadIdentityPools/$POOL/attribute.repository/$REPO"
 gcloud iam service-accounts add-iam-policy-binding "$EMAIL" --member="$MEMBER" --role="roles/iam.workloadIdentityUser" "${G[@]}" >/dev/null
 
-echo "5/5 GitHub variables (not secret): where to sign in"
-gh variable set GCP_WIF_PROVIDER --repo "$REPO" --body "projects/$PNUM/locations/global/workloadIdentityPools/$POOL/providers/$PROVIDER"
-gh variable set GCP_PROJECT --repo "$REPO" --body "$PROJECT"
+echo "5/5 Where GitHub signs in (not secret; already written in .github/workflows/deploy.yml)"
+echo "   projects/$PNUM/locations/global/workloadIdentityPools/$POOL/providers/$PROVIDER"
 
 echo
 echo "Done. GitHub can now deploy $PROJECT, and only $PROJECT."
