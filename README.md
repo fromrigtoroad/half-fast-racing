@@ -3,7 +3,7 @@
 Website and team admin for Half Fast Racing, a 24 Hours of Lemons endurance team.
 
 - Site: https://half-fast-racing.web.app
-- Admin: https://half-fast-racing.web.app/admin (email and password; accounts are created by the team owner)
+- Admin: https://half-fast-racing.web.app/admin (email and password; accounts are created by a site admin)
 
 ## Status
 
@@ -20,7 +20,7 @@ Website and team admin for Half Fast Racing, a 24 Hours of Lemons endurance team
 | People and roles | the `api` function in `functions/index.js` | Owner only. Roles are custom claims: `owner`, `carowner` (with their car number), `member`. |
 | Static files | `web/static/` | Styles, fonts, logo. |
 
-Roles: the **owner** edits everything. A **car owner** edits their own car, publishes photos and has a card on the About page. A **teammate** uploads photos.
+Roles: a **site admin** (`owner` in the code) edits everything and manages people; it doesn't have to be the team's owner. A **car owner** edits their own car and publishes photos. A **teammate** uploads photos. Who appears on the public About page is a separate tick box per person.
 
 ## Working on it
 
@@ -32,7 +32,7 @@ npx firebase emulators:start --project demo-hfr    # the whole thing locally, wi
 node tools/e2e.js             # end-to-end test against the running emulators (needs Playwright)
 ```
 
-Deploys run from the **Deploy** workflow in the Actions tab (by hand). One-time setup scripts: `scripts/setup-github-deploy.sh` (already run) and `scripts/create-owner.sh` (creates the owner's login; asks for the password in a hidden prompt).
+Deploys run from the **Deploy** workflow in the Actions tab (by hand). One-time setup scripts: `scripts/setup-github-deploy.sh` (already run) and `scripts/create-owner.sh` (creates the first site admin's login; asks for the password in a hidden prompt).
 
 ## Where the numbers come from
 

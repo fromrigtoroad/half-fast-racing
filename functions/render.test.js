@@ -16,10 +16,10 @@ test("the next race is the first switched-on race that hasn't ended", () => {
   assert.equal(nextRace(S, "2026-11-24").name, "Soon"); assert.equal(nextRace(S, "2026-12-13").name, "Soon"); assert.equal(nextRace(S, "2026-12-14").name, "Later");
   assert.ok(!renderPage(mergeState({ schedule: { races: [{ name: "Past", start: "2026-01-01", end: "2026-01-02", racing: true }] } }), "/", "2026-11-24").html.includes("Next green flag"));
 });
-test("only published photos and listed owners reach the site; the site isn't indexed until launch", () => {
+test("only published photos and people ticked for the About page reach the site; the site isn't indexed until launch", () => {
   const S = mergeState({ photos: [{ url: "https://x/a.jpg", status: "new", race: "R" }, { url: "https://x/b.jpg", status: "published", race: "R" }], people: [{ name: "Owner A", role: "owner", showOnAbout: true }, { name: "Hidden B", role: "carowner", showOnAbout: false }, { name: "Member C", role: "member", showOnAbout: true }] });
   const g = renderPage(S, "/gallery", "2026-11-24").html; assert.ok(g.includes("b.jpg") && !g.includes("a.jpg"));
-  const a = renderPage(S, "/about", "2026-11-24").html; assert.ok(a.includes("Owner A") && !a.includes("Hidden B") && !a.includes("Member C"));
+  const a = renderPage(S, "/about", "2026-11-24").html; assert.ok(a.includes("Owner A") && !a.includes("Hidden B") && a.includes("Member C"), "whoever a site admin ticks is shown, whatever their role");
   assert.ok(a.includes('content="noindex"')); assert.ok(!renderPage(mergeState({ content: { launched: true } }), "/", "2026-11-24").html.includes("noindex"));
 });
 test("a season saved in the database replaces the seed's, others stay", () => {

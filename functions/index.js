@@ -34,11 +34,11 @@ exports.api = onRequest(async (req, res) => {
   try {
     const me = await caller(req);
     const route = req.path.replace(/^\/api/, "");
-    if (!ROLES.includes(me.role)) throw new HttpError(403, "Your account has no access yet. Ask the team owner.");
+    if (!ROLES.includes(me.role)) throw new HttpError(403, "Your account has no access yet. Ask a site admin.");
     // What the admin screens start from: the same merged state the public pages render, plus drafts.
     if (route === "/state" && req.method === "GET") return res.json(await loadState(db, { fresh: true }));
     if (req.method !== "POST") throw new HttpError(405, "POST only");
-    if (me.role !== "owner") throw new HttpError(403, "Only the team owner can manage people.");
+    if (me.role !== "owner") throw new HttpError(403, "Only a site admin can manage people.");
     const b = req.body || {};
     if (route === "/invite") {
       const email = clean(b.email, 200).toLowerCase(); const name = clean(b.name, 80); const role = b.role; const car = clean(b.car, 6);
@@ -49,7 +49,7 @@ exports.api = onRequest(async (req, res) => {
       try { user = await admin.auth().createUser({ email, displayName: name, password: crypto.randomBytes(24).toString("base64url") }); }
       catch (err) { if (err.code === "auth/email-already-exists") throw new HttpError(409, "Someone with that email already has a login."); throw err; }
       await admin.auth().setCustomUserClaims(user.uid, { role, car: role === "carowner" ? car : "" });
-      await db.collection("people").doc(user.uid).set({ name, email, role, car: role === "carowner" ? car : "", bio: "", photo: "", title: "", showOnAbout: role !== "member", invitedAt: new Date().toISOString() });
+      await db.collection("people").doc(user.uid).set({ name, email, role, car: role === "carowner" ? car : "", bio: "", photo: "", title: "", showOnAbout: role === "carowner", invitedAt: new Date().toISOString() });
       return res.json({ ok: true, uid: user.uid });
     }
     if (route === "/role") {

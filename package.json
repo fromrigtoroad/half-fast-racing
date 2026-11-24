@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "rm -rf public && cp -r web/static public && mkdir -p public/admin && cp web/admin/index.html web/admin/admin.css public/admin/ && esbuild web/admin/admin.js --bundle --minify --format=esm --target=es2020 --outfile=public/admin/admin.js",
-    "test": "node --test functions/"
+    "test": "node --test functions/render.test.js"
   },
   "devDependencies": { "esbuild": "^0.24.0", "firebase": "^11.0.0", "firebase-tools": "15.34.2" }
 }

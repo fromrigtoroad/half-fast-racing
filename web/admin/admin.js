@@ -51,7 +51,7 @@ async function boot() {
     if (!user) return loginScreen(F);
     const tok = await user.getIdTokenResult(true);
     const me = { uid: user.uid, email: user.email, role: tok.claims.role || "", car: tok.claims.car || "" };
-    if (!me.role) return app$.replaceChildren(el("div", { class: "login" }, el("form", {}, el("h1", {}, "No access yet"), el("p", {}, "This login isn't on the team list. Ask the team owner to add you."), el("button", { type: "button", class: "abtn", onclick: () => signOut(auth) }, "Sign out"))));
+    if (!me.role) return app$.replaceChildren(el("div", { class: "login" }, el("form", {}, el("h1", {}, "No access yet"), el("p", {}, "This login isn't on the team list. Ask a site admin to add you."), el("button", { type: "button", class: "abtn", onclick: () => signOut(auth) }, "Sign out"))));
     shell(F, me);
   });
 }
@@ -79,7 +79,7 @@ async function shell(F, me) {
   const tabs = me.role === "owner" ? [["Overview", overview], ["Race schedule", schedule], ["Home & About", pages], ["Race reports", reports], ["Cars", cars], ["Gallery", gallery], ["People", people], ["My card", myCard]]
     : me.role === "carowner" ? [["My car", cars], ["Gallery", gallery], ["My card", myCard]] : [["Photos", gallery], ["My card", myCard]];
   const main = el("div", { class: "amain" }); const nav = el("nav", {});
-  const show = async (i) => { [...nav.children].forEach((b, j) => b.classList.toggle("on", i === j)); main.replaceChildren(el("div", { class: "ahead" }, el("div", {}, el("h1", {}, tabs[i][0])), el("div", { class: "who" }, el("span", { class: "av" }, (me.email || "?")[0].toUpperCase()), el("div", {}, el("b", {}, me.email), el("small", {}, { owner: "Team owner", carowner: `Car owner${me.car ? " · #" + me.car : ""}`, member: "Teammate" }[me.role])))), ...(await tabs[i][1](ctx))); sessionStorage.setItem("tab", i); };
+  const show = async (i) => { [...nav.children].forEach((b, j) => b.classList.toggle("on", i === j)); main.replaceChildren(el("div", { class: "ahead" }, el("div", {}, el("h1", {}, tabs[i][0])), el("div", { class: "who" }, el("span", { class: "av" }, (me.email || "?")[0].toUpperCase()), el("div", {}, el("b", {}, me.email), el("small", {}, { owner: "Site admin", carowner: `Car owner${me.car ? " · #" + me.car : ""}`, member: "Teammate" }[me.role])))), ...(await tabs[i][1](ctx))); sessionStorage.setItem("tab", i); };
   tabs.forEach(([name], i) => nav.append(el("button", { type: "button", onclick: () => show(i) }, name)));
   app$.replaceChildren(el("div", { class: "adm" }, el("aside", { class: "aside" }, el("div", { class: "abrand" }, el("b", {}, "Half Fast"), " ", el("span", {}, "Admin")), nav, el("a", { class: "viewsite", href: "/?fresh", target: "_blank" }, "View the site ↗"), el("button", { type: "button", class: "linkbtn viewsite", style: "margin-top:0", onclick: () => signOut(F.auth) }, "Sign out")), main));
   show(Math.min(Number(sessionStorage.getItem("tab") || 0), tabs.length - 1));
@@ -150,7 +150,7 @@ function photoField(F, me, label, current) {
 
 function cars({ F, me, S, fleetNums }) {
   const nums = me.role === "owner" ? fleetNums : [me.car].filter(Boolean);
-  if (!nums.length) return [panel("My car", el("p", { class: "empty" }, "No car is linked to your login yet. Ask the team owner."))];
+  if (!nums.length) return [panel("My car", el("p", { class: "empty" }, "No car is linked to your login yet. Ask a site admin."))];
   const addNum = field("Add a car number", "", { placeholder: "e.g. 47" }); const out = [];
   for (const n of nums) {
     const c = S.cars[n] || {}; const m = msg();
@@ -177,7 +177,7 @@ async function gallery({ F, me, S, years }) {
   const input = el("input", { type: "file", accept: "image/*", multiple: true, onchange: async () => {
     const files = [...input.files]; let done = 0; m.ok(`Uploading 0 of ${files.length}…`);
     for (const file of files) { try { const up = await uploadImage(F, me, file); await addDoc(collection(F.db, "photos"), { ...up, race: "Paddock", caption: "", status: "new", by: me.uid, at: new Date().toISOString() }); m.ok(`Uploading ${++done} of ${files.length}…`); } catch (e) { console.error(e); m.err(e.message); } }
-    input.value = ""; if (done) m.ok(`${done} uploaded.${canPublish ? " Pick the race and press Publish." : " The owner picks which ones go on the site."}`); draw();
+    input.value = ""; if (done) m.ok(`${done} uploaded.${canPublish ? " Pick the race and press Publish." : " A site admin or car owner picks which ones go on the site."}`); draw();
   } });
   await draw();
   const out = [panel("Upload photos", el("label", { class: "f" }, el("span", {}, "Choose photos", el("small", {}, " · phone photos are fine; they're resized automatically")), input), m.node), panel(canPublish ? "All photos" : "My photos", grid)];
@@ -187,7 +187,7 @@ async function gallery({ F, me, S, years }) {
 }
 
 async function people({ F, me, fleetNums }) {
-  const list = el("tbody", {}); const m = msg(); const ROLE = { owner: "Owner", carowner: "Car owner", member: "Teammate" };
+  const list = el("tbody", {}); const m = msg(); const ROLE = { owner: "Site admin", carowner: "Car owner", member: "Teammate" };
   const draw = async () => {
     const snap = await getDocs(collection(F.db, "people")); const rows = snap.docs.map((d) => ({ uid: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name));
     list.replaceChildren(...rows.map((p) => {
@@ -200,9 +200,9 @@ async function people({ F, me, fleetNums }) {
     }));
   };
   await draw();
-  const name = field("Name", ""); const email = field("Email", "", { type: "email" }); const role = el("select", {}, Object.entries(ROLE).filter(([k]) => k !== "owner").map(([k, v]) => el("option", { value: k }, v))); const car = el("select", {}, el("option", { value: "" }, "no car"), fleetNums.map((n) => el("option", { value: n }, "#" + n))); const m2 = msg();
+  const name = field("Name", ""); const email = field("Email", "", { type: "email" }); const role = el("select", {}, Object.entries(ROLE).reverse().map(([k, v]) => el("option", { value: k }, v))); const car = el("select", {}, el("option", { value: "" }, "no car"), fleetNums.map((n) => el("option", { value: n }, "#" + n))); const m2 = msg();
   return [panel("Invite someone", el("div", { class: "formgrid" }, name.node, email.node, el("label", { class: "f" }, "Role", role), el("label", { class: "f" }, el("span", {}, "Their car", el("small", {}, " · car owners only")), car)),
-    el("p", { class: "hint" }, "Car owners edit their car, publish photos and appear on the About page. Teammates upload photos. They get an email with a link to set their password."),
+    el("p", { class: "hint" }, "Site admins edit everything and manage people. Car owners edit their car and publish photos. Teammates upload photos. Tick “On About page” below for the people visitors should see, and give them a title in their card (for example “Team owner”). Each person gets an email with a link to set their password."),
     el("div", { class: "rowacts" }, action("Send invite", m2, async () => { await api(F, "/invite", { name: name.get(), email: email.get(), role: role.value, car: car.value }); await sendPasswordResetEmail(F.auth, email.get()); await draw(); const who = email.get(); name.input.value = email.input.value = ""; return `Invite sent to ${who}.`; }), m2.node)),
   panel("People", el("div", { class: "tbl plain" }, el("table", {}, el("thead", {}, el("tr", {}, ["Person", "Role", "Car", "On About page", ""].map((h) => el("th", {}, h)))), list)), m.node)];
 }
@@ -210,8 +210,8 @@ async function people({ F, me, fleetNums }) {
 async function myCard({ F, me }) {
   const snap = await getDocs(collection(F.db, "people")); const p = snap.docs.find((d) => d.id === me.uid)?.data();
   if (!p) return [panel("My card", el("p", { class: "empty" }, "Your card hasn't been created yet."))];
-  const f = { name: field("Name", p.name), title: field("Title", p.title, { placeholder: "e.g. Team owner, Crew chief", hint: "shown above your name" }), bio: field("About you", p.bio, { multiline: true, wide: true, hint: "how did you end up in a $500 race car?" }) }; const ph = photoField(F, me, "Your photo", p.photo); const m = msg();
-  return [panel("My card", el("p", { class: "hint" }, me.role === "member" ? "Only owners appear on the About page, but the team can see this." : "This is your card on the About page."), el("div", { class: "formgrid" }, f.name.node, f.title.node, ph.node, f.bio.node),
+  const f = { name: field("Name", p.name), title: field("Title", p.title, { placeholder: "e.g. Team owner, Crew chief, Driver", hint: "shown above your name" }), bio: field("About you", p.bio, { multiline: true, wide: true, hint: "how did you end up in a $500 race car?" }) }; const ph = photoField(F, me, "Your photo", p.photo); const m = msg();
+  return [panel("My card", el("p", { class: "hint" }, "If a site admin has put you on the About page, this is what visitors see. Otherwise only the team sees it."), el("div", { class: "formgrid" }, f.name.node, f.title.node, ph.node, f.bio.node),
     el("div", { class: "rowacts" }, action("Save", m, async () => { if (!f.name.get()) throw new Error("Add your name."); await updateDoc(doc(F.db, "people", me.uid), { name: f.name.get(), title: f.title.get(), bio: f.bio.get(), photo: ph.get() }); }), m.node))];
 }
 

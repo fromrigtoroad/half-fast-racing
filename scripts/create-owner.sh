@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Creates the team owner's login for the admin. Run once on the owner's Mac:  bash scripts/create-owner.sh
+# Creates the first site admin's login. Run once on that person's Mac:  bash scripts/create-owner.sh
+# A site admin can edit everything and manage people. It doesn't have to be the team's owner.
 # It asks for the email and password here in the terminal (the password is hidden as you type).
 # Nothing is written to the repo, and the password is never shown or stored on this computer.
 set -euo pipefail
@@ -7,7 +8,8 @@ PROJECT="${1:-half-fast-racing}"
 command -v gcloud >/dev/null || { echo "gcloud is missing: brew install --cask google-cloud-sdk"; exit 1; }
 command -v python3 >/dev/null || { echo "python3 is missing."; exit 1; }
 
-read -r -p "Your name (shown on the About page): " NAME
+read -r -p "Your name: " NAME
+read -r -p "Show you on the public About page? (y/N): " SHOW
 read -r -p "Email for the admin login: " EMAIL
 read -r -s -p "Password (12 characters or more): " PASS; echo
 read -r -s -p "Password again: " PASS2; echo
@@ -15,7 +17,7 @@ read -r -s -p "Password again: " PASS2; echo
 [ "${#PASS}" -ge 12 ] || { echo "Use at least 12 characters. Nothing was created."; exit 1; }
 
 TOKEN="$(gcloud auth print-access-token)"
-export HFR_NAME="$NAME" HFR_EMAIL="$EMAIL" HFR_PASS="$PASS" HFR_PROJECT="$PROJECT" HFR_TOKEN="$TOKEN"
+export HFR_SHOW="$SHOW" HFR_NAME="$NAME" HFR_EMAIL="$EMAIL" HFR_PASS="$PASS" HFR_PROJECT="$PROJECT" HFR_TOKEN="$TOKEN"
 unset PASS PASS2
 # The request bodies are built in Python from environment variables, so nothing sensitive appears in a command line.
 python3 - <<'PY'
@@ -36,6 +38,6 @@ uid = call("POST", f"{IDT}/accounts", {"email": email, "password": os.environ["H
 call("POST", f"{IDT}/accounts:update", {"localId": uid, "customAttributes": json.dumps({"role": "owner", "car": ""})})
 s = lambda v: {"stringValue": v}
 call("PATCH", f"https://firestore.googleapis.com/v1/projects/{P}/databases/(default)/documents/people/{uid}",
-     {"fields": {"name": s(name), "email": s(email), "role": s("owner"), "car": s(""), "bio": s(""), "photo": s(""), "title": s("Team owner"), "showOnAbout": {"booleanValue": True}}})
+     {"fields": {"name": s(name), "email": s(email), "role": s("owner"), "car": s(""), "bio": s(""), "photo": s(""), "title": s(""), "showOnAbout": {"booleanValue": os.environ.get("HFR_SHOW", "").strip().lower().startswith("y")}}})
 print(f"Done. Sign in at https://{P}.web.app/admin with {email}.")
 PY
