@@ -24,6 +24,7 @@ python3 - <<'PY'
 import json, os, sys, urllib.request, urllib.error
 P, T = os.environ["HFR_PROJECT"], os.environ["HFR_TOKEN"]
 name, email = os.environ["HFR_NAME"].strip(), os.environ["HFR_EMAIL"].strip().lower()
+class Exists(Exception): pass
 def call(method, url, body):
     req = urllib.request.Request(url, method=method, data=json.dumps(body).encode(),
         headers={"Authorization": "Bearer " + T, "Content-Type": "application/json", "x-goog-user-project": P})
@@ -31,13 +32,25 @@ def call(method, url, body):
         return json.load(urllib.request.urlopen(req, timeout=30))
     except urllib.error.HTTPError as e:
         msg = e.read().decode(errors="replace")
-        if "EMAIL_EXISTS" in msg: sys.exit("That email already has a login. Use the admin's \"Forgot or need to set a password?\" link instead.")
+        if "EMAIL_EXISTS" in msg: raise Exists()
         sys.exit(f"Google refused ({e.code}): {msg[:400]}")
 IDT = f"https://identitytoolkit.googleapis.com/v1/projects/{P}"
-uid = call("POST", f"{IDT}/accounts", {"email": email, "password": os.environ["HFR_PASS"], "displayName": name, "emailVerified": True})["localId"]
+existed = False
+try:
+    uid = call("POST", f"{IDT}/accounts", {"email": email, "password": os.environ["HFR_PASS"], "displayName": name, "emailVerified": True})["localId"]
+except Exists:
+    # The login is already there (an earlier run, or made in the console). Keep its password; just make it a site admin.
+    existed = True
+    users = call("POST", f"{IDT}/accounts:lookup", {"email": [email]}).get("users") or []
+    if not users: sys.exit("That email has a login, but it couldn't be looked up. Nothing was changed.")
+    uid = users[0]["localId"]
 call("POST", f"{IDT}/accounts:update", {"localId": uid, "customAttributes": json.dumps({"role": "owner", "car": ""})})
 s = lambda v: {"stringValue": v}
 call("PATCH", f"https://firestore.googleapis.com/v1/projects/{P}/databases/(default)/documents/people/{uid}",
      {"fields": {"name": s(name), "email": s(email), "role": s("owner"), "car": s(""), "bio": s(""), "photo": s(""), "title": s(""), "showOnAbout": {"booleanValue": os.environ.get("HFR_SHOW", "").strip().lower().startswith("y")}}})
-print(f"Done. Sign in at https://{P}.web.app/admin with {email}.")
+if existed:
+    print(f"{email} already had a login, so its password was left as it was. It is now a site admin.")
+    print(f"Sign in at https://{P}.web.app/admin with the password you set before. If you don't remember it, use \"Forgot or need to set a password?\" on that page.")
+else:
+    print(f"Done. Sign in at https://{P}.web.app/admin with {email}.")
 PY
