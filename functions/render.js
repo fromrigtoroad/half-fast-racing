@@ -17,7 +17,8 @@ function agg(evl) {
 function fleet(evl) {
   const f = {};
   for (const ev of evl) for (const [n, c] of Object.entries(ev.cars)) {
-    const x = (f[n] ??= { starts: 0, best: 999, laps: 0, cls: c.cls, res: [] });
+    const x = (f[n] ??= { starts: 0, best: 999, laps: 0, cls: c.cls, classes: [], res: [] });
+    if (c.cls && !x.classes.includes(c.cls)) x.classes.push(c.cls);
     x.starts++; x.best = Math.min(x.best, c.pos); x.laps += c.laps; x.res.push([ev, c]);
   }
   return Object.entries(f).sort((a, b) => b[1].starts - a[1].starts || a[1].best - b[1].best);
@@ -34,26 +35,28 @@ function table(evl, limit) {
 const img = (url, alt, cls = "") => `<img class="ph ${cls}" src="${e(url)}" alt="${e(alt)}" loading="lazy">`;
 const slot = (label, cls = "") => `<div class="slot ${cls}">${e(label)}</div>`;
 
+// A car can run in different classes from race to race, so the badge lists every class it ran in (this season, else ever).
+const classLabel = (s) => { const cs = [...((s && s.classes) || [])].sort(); return cs.length > 1 ? `Classes ${e(cs.join(", "))}` : `Class ${e(cs[0] || "?")}`; };
 const fullDay = (iso) => `${day(iso)}, ${iso.slice(0, 4)}`;
 const carTitle = (info) => [info.year, info.make, info.model].filter(Boolean).join(" ");
 const isActive = (S, n) => !(S.cars[n] && S.cars[n].active === false);
 /** One car. f = this season's numbers (may be undefined), all = career numbers (may be undefined for a car that hasn't raced yet). */
 function carcard(S, n, f, all, cur, mode) {
   const info = S.cars[n] || {}; const title = carTitle(info); const last = all && all.res[0];
-  const head = `<div class="carhead"><div class="num">${e(n)}</div><span class="cls">${isActive(S, n) ? `Class ${e((f || all || {}).cls || "?")}` : "Retired"}</span></div>`;
+  const head = `<div class="carhead"><div class="num">${e(n)}</div><span class="cls">${isActive(S, n) ? classLabel(f || all) : "Retired"}</span></div>`;
   const names = `${info.name ? `<h3 class="cname">${e(info.name)}</h3>` : ""}${title ? `<p class="cmodel">${e(title)}</p>` : ""}`;
   const lastLine = last ? `<p class="clast">Last raced ${fullDay(last[0].date)} · ${e(last[0].track)}</p>` : `<p class="clast">Hasn't raced yet</p>`;
   if (mode === "retired") return `<article class="car retired" id="car-${e(n)}">${head}${names}${all ? `<dl><div><dt>Starts</dt><dd>${all.starts}</dd></div><div><dt>Best</dt><dd>P${all.best}</dd></div><div><dt>Laps</dt><dd>${num(all.laps)}</dd></div></dl>` : ""}${lastLine}</article>`;
   const s = f || all; const label = f ? `Starts ${cur}` : "Starts";
   const stats = s ? `<dl><div><dt>${label}</dt><dd>${s.starts}</dd></div><div><dt>Best</dt><dd>P${s.best}</dd></div><div><dt>Laps</dt><dd>${num(s.laps)}</dd></div></dl>` : "";
-  const res = mode === "full" && all ? `<ul class="cres">${all.res.slice(0, 3).map(([ev, c]) => `<li><span>${fullDay(ev.date)} · ${e(ev.track)}</span><b>P${c.pos}</b></li>`).join("")}</ul>` : "";
+  const res = mode === "full" && all ? `<ul class="cres">${all.res.slice(0, 3).map(([ev, c]) => `<li><span>${fullDay(ev.date)} · ${e(ev.track)}${c.cls ? ` · Class ${e(c.cls)}` : ""}</span><b>P${c.pos}</b></li>`).join("")}</ul>` : "";
   const story = mode === "full" && info.story ? `<div class="cstory">${paras(info.story)}</div>` : "";
   return `<article class="car" id="car-${e(n)}">${head}${info.photo ? img(info.photo, info.name || title || `Car #${n}`) : slot("Photo coming")}${names}${stats}${mode === "full" ? lastLine : ""}${res}${story}</article>`;
 }
 
 const NAV = [["home", "Home", "/"], ["results", "Results", "/results"], ["cars", "Cars", "/cars"], ["about", "About", "/about"], ["gallery", "Gallery", "/gallery"]];
 const header = (active) => `<header class="top"><div class="wrap bar"><a class="brand" href="/"><b>Half Fast</b><span>Racing</span></a><nav class="main" aria-label="Main">${NAV.map(([k, v, h]) => `<a href="${h}" class="${k === active ? "on" : ""}">${v}</a>`).join("")}</nav></div></header>`;
-const footer = () => `<footer><div class="wrap fgrid"><div><a class="brand" href="/"><b>Half Fast</b><span>Racing</span></a><p>A 24 Hours of Lemons endurance team. Built in a garage, raced on real tracks.</p></div><div><h4>Site</h4>${NAV.slice(1).map(([, v, h]) => `<a href="${h}">${v}</a>`).join("")}</div><div><h4>Data</h4><a href="https://24hoursoflemons.com/standings" target="_blank" rel="noopener">Lemons standings ↗</a><a href="https://speedhive.mylaps.com/Organizations/145414" target="_blank" rel="noopener">Official timing ↗</a></div></div><div class="wrap legal">© ${new Date().getFullYear()} Half Fast Racing. An independent team site, not run by 24 Hours of Lemons.</div></footer>`;
+const footer = () => `<footer><div class="wrap fgrid"><div><a class="brand" href="/"><b>Half Fast</b><span>Racing</span></a><p>A 24 Hours of Lemons endurance team. Built in a garage, raced on real tracks.</p></div><div><h4>Site</h4>${NAV.slice(1).map(([, v, h]) => `<a href="${h}">${v}</a>`).join("")}</div><div><h4>Data</h4><a href="https://24hoursoflemons.com/standings" target="_blank" rel="noopener">Lemons standings ↗</a><a href="https://speedhive.mylaps.com/Organizations/145414" target="_blank" rel="noopener">Official timing ↗</a></div></div><div class="wrap legal">© ${new Date().getFullYear()} Half Fast Racing. An independent team site, not run by 24 Hours of Lemons. <span class="built">Built by <a href="https://local.apexoutreach.app" target="_blank" rel="noopener">Apex Outreach Local</a></span></div></footer>`;
 
 function shell(S, active, title, body, extra = "") {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">

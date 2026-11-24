@@ -37,3 +37,9 @@ test("the gallery never shows more than 20 photos", () => {
   const photos = Array.from({ length: 30 }, (_, i) => ({ url: `https://x/${i}.jpg`, status: "published", race: "R", at: `2026-01-01T00:00:${String(i).padStart(2, "0")}Z` }));
   assert.equal((renderPage(mergeState({ photos }), "/gallery", "2026-11-24").html.match(/class="ph /g) || []).length, 20);
 });
+test("a car that ran in two classes shows both, and each result line names its class", () => {
+  const S = mergeState({}); const ev = S.seasons["2026"]; ev[0].cars["42"].cls = "A"; ev[1].cars["42"].cls = "B";
+  const c = renderPage(S, "/cars", "2026-11-24").html; const card = c.slice(c.indexOf('id="car-42"'), c.indexOf("</article>", c.indexOf('id="car-42"')));
+  assert.ok(card.includes("Classes A, B")); assert.ok(card.includes("· Class A</span>") && card.includes("· Class B</span>"));
+  assert.ok(c.includes('href="https://local.apexoutreach.app"'));
+});
