@@ -32,8 +32,15 @@ gcloud services enable iamcredentials.googleapis.com sts.googleapis.com iam.goog
   cloudscheduler.googleapis.com secretmanager.googleapis.com "${G[@]}"
 
 echo "2/5 Database"
+# A service that was just switched on can take a few minutes to be usable, so this step retries.
 if ! gcloud firestore databases describe --database="(default)" "${G[@]}" >/dev/null 2>&1; then
-  gcloud firestore databases create --database="(default)" --location="$REGION" --type=firestore-native "${G[@]}"
+  made=""
+  for try in 1 2 3 4 5 6 7 8; do
+    if gcloud firestore databases create --database="(default)" --location="$REGION" --type=firestore-native "${G[@]}" 2>/tmp/hfr-firestore.err; then made=1; break; fi
+    if grep -q "already exists" /tmp/hfr-firestore.err; then made=1; break; fi
+    echo "   Database service not ready yet, waiting 30 s (try $try of 8)"; sleep 30
+  done
+  [ -n "$made" ] || { cat /tmp/hfr-firestore.err; echo "The database could not be created. Run this script again in a few minutes."; exit 1; }
 fi
 
 echo "3/5 Identity pool and GitHub provider"
